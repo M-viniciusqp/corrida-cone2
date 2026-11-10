@@ -40,10 +40,11 @@ controller.time = types.SimpleNamespace(time=lambda: Clock.t)
 cones_mod.time = types.SimpleNamespace(time=lambda: Clock.t)
 
 # ------------------------------------------------------------ geometria
-LANE_W = 0.29        # pontilhada -> continua (m)
-CONE_W = 0.18        # base do cone (m)
-CONE_H = 0.23
-CAR_HALF_W = 0.10
+# medidas do mundo simulado = as do config.py (assim o simulador acompanha a calibracao)
+LANE_W = config.PISTA_LARGURA_CM / 100.0       # pontilhada -> continua (m)
+CONE_W = config.CONE_LARGURA_CM / 100.0        # base do cone (m)
+CONE_H = CONE_W * 0.23 / 0.18                  # mesma proporcao do cone de antes (23 x 18)
+CAR_HALF_W = config.CARRO_LARGURA_CM / 200.0
 CAR_REAR, CAR_FRONT = -0.06, 0.24     # em relacao ao eixo traseiro
 WHEELBASE = 0.20
 TAPE = 0.025
@@ -252,10 +253,12 @@ CONE_CAM = Cam(320, 240, 250.0, 0.12, 0.0, 0.20)
 
 
 def run(track, cones, s0=0.2, duty_scale=1.0, v_max=0.9, t_max=60.0, seed=0,
-        verbose=False, start_u=0.145, log_window=None, cam_lane=LANE_CAM, cam_cone=CONE_CAM,
+        verbose=False, start_u=None, log_window=None, cam_lane=LANE_CAM, cam_cone=CONE_CAM,
         stop_after_cones=True):
     rng = np.random.RandomState(seed)
     P, T, N = track.at(s0)
+    if start_u is None:
+        start_u = LANE_W / 2.0              # centro da faixa da direita
     p0 = P + start_u * N
     car = Car(p0[0], p0[1], math.atan2(T[1], T[0]), v_max=v_max)
     pilot = Pilot()

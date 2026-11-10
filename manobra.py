@@ -44,6 +44,9 @@ class Manobra:
         self.ultimo = ""            # texto da ultima decisao (pro log)
         self.mov_cone = None        # ultimas medidas (pro log)
         self.mov_pista = None
+        self._alt_ult = 0.0         # altura do cone na ultima vez em que foi visto
+        self._base_ult = False      # ... e se a base estava cortada (colado no carro)
+        self.esperando_perto = False   # parado porque o cone sumiu colado (nao segue em frente)
 
     @property
     def parado(self):
@@ -62,6 +65,10 @@ class Manobra:
         self.estado = estado
         self.t_estado = agora
         self.calmo = 0
+        if estado == FREAR:
+            self.ultimo = ""            # nao deixa o texto da decisao ANTERIOR no log/foto
+        if estado != ANALISAR:
+            self.esperando_perto = False
 
     def update(self, agora, cone, cone_novo, mov_pista, desvio, lane=None):
         """Chamar a cada quadro. cone_novo = chegou quadro novo da camera de
@@ -71,6 +78,8 @@ class Manobra:
             desvio.liberado = True
             return self.estado
         self.mov_pista = mov_pista
+        if cone is not None and cone.found:
+            self._alt_ult, self._base_ult = cone.altura, cone.toca_base
         # cone fora da pista (do outro lado das linhas externas): nao e obstaculo
         self._fora_da_pista = (cone is not None and cone.found and lane is not None
                                and not desvio.no_caminho(cone, lane))
@@ -148,6 +157,7 @@ class Manobra:
                        and desvio.tem_medida) or dt_an >= config.CONE_ANALISE_MAX_S)
             if pronto:
                 if cone is not None and cone.found:
+                    self.esperando_perto = False
                     rel, txt = desvio.classificar_parado(cone, lane)
                     self.ultimo = txt
                     if not rel:
@@ -165,9 +175,17 @@ class Manobra:
                     self._t_sem_cone = None
                     self._alt_max = cone.altura
                     self._muda(DESVIAR, agora)
+                elif ((self._alt_ult >= config.CONE_PERDIDO_PERTO_ALT or self._base_ult)
+                        and dt_an < config.CONE_PERDIDO_PERTO_MAX_S):
+                    # o cone SUMIU mas estava colado (altura alta / base cortada): ele esta
+                    # na frente, abaixo do campo da camera. Seguir em frente = bater nele.
+                    # Fica parado esperando ele reaparecer (ate CONE_PERDIDO_PERTO_MAX_S).
+                    self.esperando_perto = True
+                    self.ultimo = "cone sumiu colado (alt %.2f): parado esperando" % self._alt_ult
                 else:
-                    # perdeu o cone enquanto estava parado: nao tem o que
-                    # desviar, volta a seguir a faixa
+                    # perdeu o cone enquanto estava parado (e nao estava colado): nao tem o
+                    # que desviar, volta a seguir a faixa
+                    self.esperando_perto = False
                     self.t_ultimo_gatilho = agora
                     self._muda(SEGUIR, agora)
             return self.estado

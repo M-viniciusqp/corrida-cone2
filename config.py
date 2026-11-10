@@ -140,15 +140,14 @@ MAX_FRAMES_PERDIDO = 12
 # da manobra. Nesse periodo: segura o ultimo esterco, anda numa velocidade
 # segura, e tolera ~2 s sem leitura.
 #
-# Medido no simulador (32 corridas, pistas S e oval): com decaimento 0.985 e 60 quadros, 22 voltas
-# completas; sem decair o esterco (1.0) e tolerando 120 quadros, 31. O carro saia da manobra torto
-# e perdia a pista com o volante JA virado pro lado certo; o decaimento soltava o volante e ele
-# nunca voltava. ATENCAO: 120 quadros sao ~4 s a 30 FPS (~6-8 s a 15-20 FPS reais) andando a
-# VELOCIDADE_PERDIDO_DESVIO com o esterco travado. Se na pista real ele insistir em sair da pista
-# nesse trecho, volte pra 0.985 / 60.
-MAX_FRAMES_PERDIDO_DESVIO   = 120
+# NO SIMULADOR (32 corridas) segurar o esterco (TURN_DECAI=1.0) e tolerar 120 quadros deu 31 voltas
+# contra 22 com 0.985/60. MAS na pista real (log de 10/11) o carro terminou encostado na parede
+# depois de um desvio: 120 quadros sao ~4 s a 30 FPS (~6-8 s a 15-20 FPS reais) andando com o
+# volante TRAVADO sem enxergar a pista. Voltou pro valor seguro (0.985 / 60) ate se confirmar na
+# pista que o outro nao sai da pista.
+MAX_FRAMES_PERDIDO_DESVIO   = 60
 VELOCIDADE_PERDIDO_DESVIO   = 0.20
-TURN_DECAI_PERDIDO_DESVIO   = 1.0
+TURN_DECAI_PERDIDO_DESVIO   = 0.985
 
 # =====================================================================
 # 9. VIES DE FAIXA - andar mais perto da faixa PONTILHADA que do centro
@@ -265,11 +264,14 @@ CONE_LADO_PADRAO  = "esquerda"  # por onde passa quando nao da pra saber
 # Como se sabe: na imagem da camera de cone, mede-se a distancia do cone ate
 # a faixa CONTINUA (em larguras de cone, na altura da base do cone). Se ela e
 # menor que a largura da faixa, o cone esta dentro da faixa do carro.
-CONE_LARGURA_CM  = 18.0    # largura da BASE do cone no chao (meça!)
-PISTA_LARGURA_CM = 29.0    # MEDIDO na pista: cone em cima da pontilhada -> a
-                           # janela CONE leu 'continua a 29cm'. (Em cm so
-                           # se o cone tiver mesmo CONE_LARGURA_CM; o que
-                           # vale e a razao entre os dois.)
+CONE_LARGURA_CM  = 14.0    # largura da BASE do cone no chao: MEDIDO = 14 cm (antes 18 -> todas as
+                           # distancias em cm saiam ~29% infladas: cone a -71 cm, fora da pista)
+PISTA_LARGURA_CM = 22.6    # ESTIMADO, MEÇA e corrija. O que o codigo usa de verdade e a RAZAO
+                           # PISTA/CONE (a faixa em larguras de cone), que foi medida na imagem:
+                           # cone em cima da pontilhada -> 'continua a 29cm' com cone de 18 =
+                           # 1.61 larguras. Mantida a razao com o cone real: 1.61 x 14 = 22.6 cm.
+                           # Se a faixa real tiver outra largura em cm (regua), ajuste AQUI e
+                           # CARRO_LARGURA_CM/CONE_MARGEM_CM: eles definem a folga do desvio.
 CONE_FOLGA_CM = CARRO_LARGURA_CM / 2.0 + CONE_LARGURA_CM / 2.0 + CONE_MARGEM_CM
 CONE_NA_LINHA_CM = 5.0     # a menos disso da pontilhada = "em cima da linha":
                            # decide pelo lado com mais espaco
@@ -337,10 +339,25 @@ CONE_GATILHO_ALTURA = 0.25      # altura do cone na imagem que dispara a parada.
 CONE_GATILHO_QUADROS = 2        # quadros seguidos vendo o cone no gatilho (evita falso positivo)
 CONE_PARADA_MIN_S = 0.2         # tempo minimo parado antes de analisar (inercia dos motores)
 CONE_PARADA_MAX_S = 1.5         # se nao parar de se mexer nesse tempo, analisa assim mesmo
-CONE_PARADA_CALMO_N = 1         # quadros seguidos 'sem se mexer' pra considerar parado
-CONE_PARADO_D_ALT = 0.004       # o cone mudou de altura menos que isso entre quadros = parado
-CONE_PARADO_D_X = 0.015         # idem, posicao lateral (-1..+1)
-CONE_PARADO_DIFF = 3.0          # mudanca media (0-255) da imagem da pista = ainda mexendo
+CONE_PARADA_CALMO_N = 2         # quadros seguidos 'sem se mexer' pra considerar parado
+CONE_PARADO_D_ALT = 0.012       # o cone mudou de altura menos que isso entre quadros = parado.
+                                # (era 0.004 = 1 pixel: com camera real nunca passava e a parada era
+                                # sempre pelo tempo maximo; no log real o cone variava 0.004-0.046)
+CONE_PARADO_D_X = 0.03          # idem, posicao lateral (-1..+1) (era 0.015)
+CONE_PARADO_DIFF = 3.0          # mudanca media (0-255) da imagem da pista = ainda mexendo. Agora
+                                # medida SEM o brilho medio (piloto.py): luz que oscila / auto
+                                # exposicao nao conta como movimento (no log real dava 7-32 parado)
+
+# FREIO ATIVO: velocidade 0 so zera o PWM (roda livre, o carro continua andando um bom pedaco).
+# Com isto, ao parar pro cone a ponte H liga as DUAS entradas de cada motor (freio) ate o carro
+# poder voltar a andar. Pressupoe ponte H tipo L298N/TB6612 (ENA + IN1/IN2). Desligue se o motor
+# reagir estranho.
+FREIO_ATIVO = True
+# Cone que SUMIU da imagem quando o carro ja estava MUITO perto (altura >= isto, ou base cortada):
+# ele esta colado na frente, abaixo do campo da camera. Antes o carro entendia 'sem cone' e seguia
+# em frente DIRETO pra cima dele (log real: altura 0.26 -> 0.75 e depois 'cone -').
+CONE_PERDIDO_PERTO_ALT = 0.45
+CONE_PERDIDO_PERTO_MAX_S = 6.0  # fica parado ate isso esperando; depois segue (nao trava pra sempre)
 CONE_ANALISE_S = 0.15           # tempo medindo o cone com o carro parado
 CONE_REARME_S = 0.5             # durante o desvio: cone sumiu por isso = ja passou; um novo pode parar
 CONE_COOLDOWN_S = 0.4           # depois de um desvio, tempo sem parar de novo

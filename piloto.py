@@ -46,6 +46,7 @@ class Piloto:
         self._confiavel_ant = True
         self._cone_novo = False     # o ultimo step() trouxe quadro NOVO da camera de cone
         self._t_la = None           # p/ a rampa da mira (lookahead)
+        self._esp_perto_ant = False # p/ logar uma vez: parado porque o cone sumiu colado
         self._peq_ant = None       # imagem pequena da pista (mede se o carro anda)
         self._estado_ant = SEGUIR
         self._t_log_desvio = 0.0
@@ -79,8 +80,11 @@ class Piloto:
 
         # quanto a imagem da pista mudou desde o quadro anterior: com o carro
         # parado fica ~0 (so ruido); andando, o chao passa
+        # (sem o brilho medio: lampada que oscila / auto exposicao mexem na imagem inteira
+        # e nao sao movimento -- no log real isso dava 7-32 com o carro parado)
         peq = cv2.cvtColor(cv2.resize(frame_pista, (64, 36), interpolation=cv2.INTER_AREA),
-                           cv2.COLOR_BGR2GRAY).astype(np.int16)
+                           cv2.COLOR_BGR2GRAY).astype(np.float32)
+        peq -= float(peq.mean())
         mov_pista = (float(np.abs(peq - self._peq_ant).mean())
                      if self._peq_ant is not None else None)
         self._peq_ant = peq
@@ -132,6 +136,10 @@ class Piloto:
                 self.pid.marcar_retomada()      # saindo da parada: sem chute do D
                 self.pid.reset()
             self._estado_ant = estado
+        if manobra.esperando_perto and not self._esp_perto_ant:
+            ev.append(f"[manobra] cone SUMIU colado (alt {manobra._alt_ult:.2f}) -> fico PARADO "
+                      f"esperando ele reaparecer (ate {config.CONE_PERDIDO_PERTO_MAX_S:.0f}s)")
+        self._esp_perto_ant = manobra.esperando_perto
         if estado == FREAR and agora - self._t_log_freio >= 0.15:
             self._t_log_freio = agora
             mc = manobra.mov_cone

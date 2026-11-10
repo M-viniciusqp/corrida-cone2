@@ -102,7 +102,11 @@ def main():
             turn, speed = piloto.step(agora, frame, f_cone, cone_novo,
                                       fps=fps_medido, debug_cone=DEBUG)
             t2 = time.time()
-            motor.move(speed, turn)
+            # parando/analisando um cone: freio ATIVO (speed 0 sozinho = roda livre)
+            if config.FREIO_ATIVO and piloto.manobra.parado:
+                motor.freio(turn)
+            else:
+                motor.move(speed, turn)
             t3 = time.time()
             t_cam += (t1 - t0); t_vis += (t2 - t1); t_mot += (t3 - t2)
 

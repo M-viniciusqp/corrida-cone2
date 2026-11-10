@@ -53,7 +53,8 @@ def cones_aleatorios(tr, n, semente, espaco=1.9):
     rng = np.random.RandomState(semente)
     out, s = [], 2.2
     while len(out) < n and s < tr.L - 1.5:
-        u = rng.uniform(-0.22, -0.02) if rng.rand() < 0.2 else rng.uniform(0.02, 0.27)
+        k = LANE_W / 0.29                  # escala (cenarios foram desenhados p/ faixa de 29 cm)
+        u = k * (rng.uniform(-0.22, -0.02) if rng.rand() < 0.2 else rng.uniform(0.02, 0.27))
         P, T, N = tr.at(s)
         out.append((s, u, tuple(P + u * N)))
         s += espaco + rng.uniform(0.0, 0.8)
@@ -73,8 +74,10 @@ def pista_S(amp=0.20, comp=3.0, externa=True):
     return Track(pts, outer_left_line=externa)
 
 
-def cones_alternados(tr, n, espaco, primeiro="R", u_r=0.145, u_l=-0.145, s0=2.5):
+def cones_alternados(tr, n, espaco, primeiro="R", u_r=None, u_l=None, s0=2.5):
     """cones um em cada faixa (como na foto): direita, esquerda, direita..."""
+    u_r = LANE_W / 2.0 if u_r is None else u_r      # centro de cada faixa
+    u_l = -LANE_W / 2.0 if u_l is None else u_l
     out = []
     for i in range(n):
         s = s0 + i * espaco

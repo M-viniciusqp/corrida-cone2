@@ -61,10 +61,10 @@ def step(self, lane_img, cone_img):
             k = tr.nearest(np.array(CONES[i]))
             rel = np.array(CONES[i]) - tr.C[k]
             u = float(rel @ tr.N[k])        # m a partir da pontilhada (+ direita)
-            w_true = u*100 - 14.5            # cm a partir do centro da faixa direita
+            w_true = u*100 - config.PISTA_LARGURA_CM / 2.0            # cm a partir do centro da faixa direita
             ignorou = "NAO esta" in e
             kc = tr.nearest(np.array([car.x, car.y]))
-            w_car = float((np.array([car.x, car.y]) - tr.C[kc]) @ tr.N[kc]) * 100 - 14.5   # onde o CARRO esta (cm, mesmo referencial)
+            w_car = float((np.array([car.x, car.y]) - tr.C[kc]) @ tr.N[kc]) * 100 - config.PISTA_LARGURA_CM / 2.0   # onde o CARRO esta (cm, mesmo referencial)
             DEC.append(dict(cone=i, w_true=w_true, w_car=w_car, w_est=self.desvio.w_cone_cm,
                             lado=self.desvio.lado, ignorou=ignorou,
                             fonte=self.desvio.fonte_w, txt=self.manobra.ultimo))
@@ -97,7 +97,7 @@ for tipo, sems in (("S", range(NS)), ("oval", range(NS))):
         print("== %s sem %d: volta=%s batidas=%d/%d prog=%.1f/%.1f" % (
             tipo, sem, "OK" if out["done"] else "NAO", len(out["hits"]), n, out["s_end"], out["s_end"] if out["done"] else 14.7))
         for d in dec:
-            ideal = +1 if d["w_true"] >= -14.5 else -1
+            ideal = +1 if d["w_true"] >= -config.PISTA_LARGURA_CM / 2.0 else -1
             ok = (d["lado"] == ideal) or d["ignorou"]
             tot["dec"] += 1; tot["lado_ok"] += int(ok); tot["lado_ruim"] += int(not ok)
             err = None if d["w_est"] is None else d["w_est"] - d["w_true"]

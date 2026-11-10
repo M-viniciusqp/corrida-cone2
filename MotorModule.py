@@ -66,6 +66,17 @@ class Motor:
         if t:
             sleep(t)
 
+    def freio(self, turn=0.0):
+        """FREIO ATIVO: as duas entradas de cada motor em HIGH com o PWM em 100% (ponte H
+        curto-circuita o motor e ele para na hora). drive(0) so zera o PWM = roda livre:
+        o carro continua andando um bom pedaco. Qualquer move()/drive() seguinte solta o
+        freio (ele reescreve as entradas)."""
+        self.turn_to(turn)
+        for pin in (self.In1A, self.In2A, self.In1B, self.In2B):
+            GPIO.output(pin, GPIO.HIGH)
+        self.pwmA.ChangeDutyCycle(100)
+        self.pwmB.ChangeDutyCycle(100)
+
     def stop(self, t=0):
         self.pwmA.ChangeDutyCycle(0)
         self.pwmB.ChangeDutyCycle(0)
