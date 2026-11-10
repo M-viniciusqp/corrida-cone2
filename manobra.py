@@ -80,9 +80,17 @@ class Manobra:
         self.mov_pista = mov_pista
         if cone is not None and cone.found:
             self._alt_ult, self._base_ult = cone.altura, cone.toca_base
-        # cone fora da pista (do outro lado das linhas externas): nao e obstaculo
-        self._fora_da_pista = (cone is not None and cone.found and lane is not None
-                               and not desvio.no_caminho(cone, lane))
+        # cone fora da pista (do outro lado das linhas externas): nao e obstaculo.
+        # So VETA a parada com o cone perto: de longe a posicao lateral estimada e ruim
+        # (no teste real o cone dava lat -2.9w a 1 m e -0.6w a 30 cm), e vetar por ela
+        # fazia o carro frear tarde demais. Longe, para e deixa o ANALISAR decidir.
+        fora = (cone is not None and cone.found and lane is not None
+                and not desvio.no_caminho(cone, lane))
+        longe = cone is not None and cone.found and cone.altura < config.CONE_VETO_FORA_ALTURA
+        self._fora_da_pista = fora and not longe
+        if fora and longe and self.estado == SEGUIR and self._gatilho(cone):
+            self.ultimo = ("cone longe estimado FORA da pista (alt %.2f): para pra conferir"
+                           % cone.altura)
 
         # quanto o cone mexeu na imagem desde o quadro novo anterior
         if cone_novo:
