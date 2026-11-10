@@ -333,10 +333,16 @@ CONE_CRUZAR_FRAC = 0.8
 # (altura relativa ou base cortada) -> para o carro em vez de bater.
 # 0.0 desliga.
 CONE_PARA_E_ANALISA = True      # PARA quando ve o cone, espera parar, analisa e so entao desvia (manobra.py)
-CONE_GATILHO_ALTURA = 0.25      # altura do cone na imagem que dispara a parada. Cone de 25 cm:
+CONE_GATILHO_ALTURA = 0.20     # altura do cone na imagem que dispara a parada. Cone de 25 cm:
                                 # altura = 25*f/(dist*240), f~240px -> 0.21 ~ 120 cm, 0.25 ~ 100 cm, 0.28 ~ 90 cm, 0.50 ~ 50 cm.
                                 # AJUSTE pelo 'alt' do log: e a distancia da parada.
-CONE_VETO_FORA_ALTURA = 0.45    # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
+# APROXIMACAO: com o cone a vista no caminho (alt >= CONE_APROX_ALTURA) o carro anda mais devagar.
+# A distancia de frenagem cai com o quadrado da velocidade e a camera de cone tem ~0.25 s de
+# atraso (15 fps + 2 quadros de confirmacao). No teste real ele parava com o cone colado (alt 0.9).
+# 0 desliga.
+CONE_VEL_APROXIMA = 0.20
+CONE_APROX_ALTURA = 0.10
+CONE_VETO_FORA_ALTURA = 0.45   # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
 CONE_GATILHO_QUADROS = 2       # quadros seguidos vendo o cone no gatilho (evita falso positivo)
 CONE_PARADA_MIN_S = 0.2         # tempo minimo parado antes de analisar (inercia dos motores)

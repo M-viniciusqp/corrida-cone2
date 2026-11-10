@@ -61,6 +61,22 @@ class Manobra:
                 abs(cone.cx) < config.CONE_PARAR_X and
                 (cone.altura >= config.CONE_GATILHO_ALTURA or cone.toca_base))
 
+    def motivo_sem_gatilho(self, cone, agora):
+        """Texto: por que o cone NAO disparou a parada agora (pro log). '' = nao se aplica."""
+        if self.estado != SEGUIR or cone is None or not cone.found:
+            return ""
+        if self.ignorando:
+            return "cone marcado como OUTRA faixa (ignorando)"
+        if self._fora_da_pista:
+            return "estimado FORA da pista (perto: veto)"
+        if abs(cone.cx) >= config.CONE_PARAR_X:
+            return "fora do corredor central (|x| %.2f >= %.2f)" % (abs(cone.cx), config.CONE_PARAR_X)
+        if cone.altura < config.CONE_GATILHO_ALTURA and not cone.toca_base:
+            return "ainda longe (alt %.2f < %.2f)" % (cone.altura, config.CONE_GATILHO_ALTURA)
+        if agora - self.t_ultimo_gatilho <= config.CONE_COOLDOWN_S:
+            return "cooldown"
+        return "confirmando %d/%d quadros" % (self.vistos, config.CONE_GATILHO_QUADROS)
+
     def _muda(self, estado, agora):
         self.estado = estado
         self.t_estado = agora

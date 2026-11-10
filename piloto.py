@@ -51,6 +51,7 @@ class Piloto:
         self._estado_ant = SEGUIR
         self._t_log_desvio = 0.0
         self._t_log_freio = 0.0
+        self._t_log_aprox = 0.0
 
     # ------------------------------------------------------------------
     def step(self, agora, frame_pista, frame_cone=None, cone_novo=False,
@@ -140,6 +141,14 @@ class Piloto:
             ev.append(f"[manobra] cone SUMIU colado (alt {manobra._alt_ult:.2f}) -> fico PARADO "
                       f"esperando ele reaparecer (ate {config.CONE_PERDIDO_PERTO_MAX_S:.0f}s)")
         self._esp_perto_ant = manobra.esperando_perto
+        # aproximando: uma linha a cada 0.4 s com a altura/posicao do cone e o motivo de
+        # ainda nao ter parado (no teste real a parada vinha tarde e nao dava pra saber por que)
+        if (estado == SEGUIR and cone is not None and cone.found
+                and cone.altura >= config.CONE_APROX_ALTURA
+                and agora - self._t_log_aprox >= 0.4):
+            self._t_log_aprox = agora
+            ev.append(f"[cone] aproximando: alt {cone.altura:.2f} x {cone.cx:+.2f} "
+                      f"lat {cone.lat:+.1f}w | {manobra.motivo_sem_gatilho(cone, agora)}")
         if estado == FREAR and agora - self._t_log_freio >= 0.15:
             self._t_log_freio = agora
             mc = manobra.mov_cone
@@ -178,6 +187,11 @@ class Piloto:
                 turn = max(-1.0, min(1.0, turn * config.CONE_GANHO_TURN_DESVIO))
 
             speed = speed_for(turn, res.curvature) * desvio.fator_velocidade()
+            if (config.CONE_VEL_APROXIMA and manobra.estado == SEGUIR and not manobra.ignorando
+                    and not manobra._fora_da_pista and cone is not None and cone.found
+                    and cone.altura >= config.CONE_APROX_ALTURA
+                    and abs(cone.cx) < config.CONE_PARAR_X):
+                speed = min(speed, config.CONE_VEL_APROXIMA)   # cone a frente: chega devagar
             if manobra.parado:
                 speed, turn = 0.0, 0.0           # parando/analisando: motores em zero
             elif (manobra.estado == DESVIAR and
