@@ -116,6 +116,11 @@ class LaneVision:
         # lado e a continua. Enquanto True, o aprendizado do lado fica parado.
         self.congelar_lado = False
 
+        # ate onde a mira olha (fracao da altura do ROI, de baixo pra cima). O Piloto
+        # aproxima isso durante o desvio: com a mira longe, o erro mistura a posicao
+        # lateral com o ANGULO do carro e o deslocamento do desvio era cancelado por ele.
+        self.lookahead_pct = config.LOOKAHEAD_PCT
+
         # Piloto liga isso so com o carro PARANDO/ANALISANDO: achar o cone na
         # imagem da pista custa ~1/3 do tempo da visao e so serve nessa hora.
         self.medir_cone = False
@@ -503,7 +508,7 @@ class LaneVision:
         # NUNCA extrapolar: o alvo so pode ficar dentro da faixa de alturas que
         # o robo REALMENTE enxergou. Extrapolar parabola com poucos pontos
         # manda o alvo pra fora da tela (era o ponto verde colado na borda).
-        y_look = roi_h * (1.0 - config.LOOKAHEAD_PCT)
+        y_look = roi_h * (1.0 - self.lookahead_pct)
         y_look = max(y_min, min(y_max, y_look))
 
         # grau 2 exige pontos suficientes E bem espalhados; senao, reta.

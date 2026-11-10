@@ -85,6 +85,9 @@ FIT_MIN_SPAN_PCT  = 0.40
 FIT_MARGEM        = 60
 
 LOOKAHEAD_PCT = 0.55
+LOOKAHEAD_DESVIO_PCT = 0.55   # mira DURANTE o desvio (menor = mais perto do carro: o erro lateral pesa
+                              # mais e o angulo do carro menos). Igual a LOOKAHEAD_PCT = sem efeito.
+LOOKAHEAD_RAMPA = 0.8         # quanto a mira pode mudar por segundo (evita degrau no erro)
 CAR_CENTER_PCT = 0.50
 
 # =====================================================================
@@ -136,9 +139,16 @@ MAX_FRAMES_PERDIDO = 12
 # Decair o esterco e parar em 12 quadros (0.4 s) derrubava o carro bem no meio
 # da manobra. Nesse periodo: segura o ultimo esterco, anda numa velocidade
 # segura, e tolera ~2 s sem leitura.
-MAX_FRAMES_PERDIDO_DESVIO   = 60
+#
+# Medido no simulador (32 corridas, pistas S e oval): com decaimento 0.985 e 60 quadros, 22 voltas
+# completas; sem decair o esterco (1.0) e tolerando 120 quadros, 31. O carro saia da manobra torto
+# e perdia a pista com o volante JA virado pro lado certo; o decaimento soltava o volante e ele
+# nunca voltava. ATENCAO: 120 quadros sao ~4 s a 30 FPS (~6-8 s a 15-20 FPS reais) andando a
+# VELOCIDADE_PERDIDO_DESVIO com o esterco travado. Se na pista real ele insistir em sair da pista
+# nesse trecho, volte pra 0.985 / 60.
+MAX_FRAMES_PERDIDO_DESVIO   = 120
 VELOCIDADE_PERDIDO_DESVIO   = 0.20
-TURN_DECAI_PERDIDO_DESVIO   = 0.985
+TURN_DECAI_PERDIDO_DESVIO   = 1.0
 
 # =====================================================================
 # 9. VIES DE FAIXA - andar mais perto da faixa PONTILHADA que do centro
@@ -279,7 +289,10 @@ CONE_PISTA_DILATA_PX  = 21      # tira o cone da mascara da camera de PISTA
                                 # (reflexos do plastico viravam "faixa"); 0 desliga
 CONE_GANHO        = 1.0
 CONE_GANHO_POS    = 1.0   # modo 'posicao lateral': esterco = KP * isto * deslocamento
-CONE_MARGEM_CONT_CM = 7.0 # o centro do carro fica a pelo menos isso da continua
+CONE_MARGEM_CONT_CM = CARRO_LARGURA_CM / 2.0   # o centro do carro fica a pelo menos isso da continua
+                          # = meia largura do carro: a roda NAO pisa na continua (era 7 cm, com carro de
+                          # 20 cm a roda externa passava 3 cm por cima da linha). No simulador: 23 -> 21
+                          # batidas em 20 corridas, mesmas decisoes de lado.
 CONE_OFFSET_MAX   = 2.00   # teto do deslocamento somado ao erro. ALTO de
                            # proposito: com a pista puxando -0.8 e o cone
                            # exigindo +0.6, o desvio precisa ser 1.4. Quem
@@ -290,8 +303,10 @@ CONE_OFFSET_SLEW  = 0.8    # maximo que o deslocamento varia (erro/segundo). 1 u
                            # que o carro consegue acompanhar (antes 6.0 era um degrau)
 CONE_RETORNO_SLEW = 0.35   # idem, mas VOLTANDO pro centro da faixa (erro/segundo ~ 10 cm/s)
 CONE_ERRO_SEM_SATURAR = True    # no desvio, soma o cone no erro da pista SEM o corte em +-1
-CONE_NA_PISTA = True            # (experimental) mede o cone na camera da PISTA tambem; no simulador
-                                # piorou, por isso desligado. Ligue so pra testar.
+CONE_NA_PISTA = False           # (experimental) mede o cone na camera da PISTA tambem. No simulador
+                                # essa medida errou ~14 cm (mediana) contra ~2 cm da pontilhada/continua
+                                # vistas pela camera de CONE, e escolheu o lado errado em 1/3 das vezes.
+                                # Desligado. Ligue so pra testar (entra na fusao com sigma alto).
 CONE_PISTA_YB_MIN = 0           # so mede com a base do cone abaixo desta fileira da imagem
 CONE_PISTA_AREA_MIN = 40        # area minima (px) do vermelho na camera da pista
 CONE_PISTA_EXTRAP_PX = 70       # quanto acima da zona varrida a reta do centro da faixa
@@ -336,7 +351,28 @@ DEBUG_CADA = 4                  # --ver: mostra as janelas a cada N quadros (men
 CONE_SO_MINHA_FAIXA = True      # so reage a cone na FAIXA DO CARRO (ou na pontilhada); cone da outra faixa e ignorado
 CONE_LAT_OUTRA_CM = 14.0        # regra simples: cone a mais que isso do lado oposto da continua (no eixo do carro) = outra faixa
 CONE_OUTRA_FAIXA_FOLGA_CM = 4.0 # tolerancia pra estimativa ruidosa: cone ate isso alem da pontilhada ainda conta
-CONE_IGNORA_SCORE = 3          # pra IGNORAR um cone (outra faixa) precisa de evidencia >= isso (pontilhada 2, cam.pista 2, regra 1)
+CONE_IGNORA_SCORE = 3          # (OBSOLETO: a classificacao agora usa a posicao FUNDIDA +- sigma, ver CONE_SIGMA_*)
+
+# ---- estimador unico da posicao do cone (cones.py: estimar_w) ----
+# Cada fonte da posicao lateral do cone (cm do centro da faixa) tem um erro tipico (sigma);
+# elas sao FUNDIDAS por media ponderada por 1/sigma^2. Medido no simulador (mediana do erro):
+# continua ~2 cm, pontilhada ~2 cm (cauda ate ~20), camera de pista ~14 cm, geometria ~21 cm.
+CONE_SIGMA_PONT_CM  = 4.0      # cone x pontilhada, na imagem do cone
+CONE_SIGMA_CONT_CM  = 3.0      # cone x continua, na imagem do cone
+CONE_SIGMA_PISTA_CM = 14.0     # cone visto pela camera da pista (CONE_NA_PISTA)
+CONE_SIGMA_GEO_CM   = 21.0     # geometria cruzando as 2 cameras: NUNCA decide o lado sozinha
+# Com o carro parado, so decide depois de N quadros DISTINTOS da camera de cone (antes eram 0.15 s,
+# ~2 quadros, e o mesmo quadro era contado varias vezes). Passou de CONE_ANALISE_MAX_S sem medida
+# boa: segue com o que tem (lado padrao = cruza a pontilhada).
+CONE_ANALISE_QUADROS     = 5
+CONE_ANALISE_QUADROS_SEQ = 3   # cone em sequencia: analise mais curta
+CONE_ANALISE_MAX_S       = 0.8
+# Escolha do lado por FOLGA FISICA: pra cada lado calcula-se o quanto sobra entre o carro (ja
+# cortado pelas bordas da pista) e o cone, no PIOR caso (posicao +- sigma). Fica o lado com mais
+# folga; o lado da regra (cone na faixa -> cruza a pontilhada) ganha este bonus de desempate.
+CONE_LADO_BONUS_CM  = 3.0
+CONE_FOLGA_MIN_CM   = 3.0      # margem minima carro-cone; abaixo disso o log avisa "folga curta"
+CONE_DISCORDA_CM    = 12.0     # fontes boas discordando por mais que isso: sigma sobe (ambiguo)
 CONE_FORA_PISTA_CM = 25.0        # cone alem da linha externa por mais que isso = fora da pista: nao para
 CONE_SEQ_JANELA_S = 3.0         # cone que aparece ate esse tempo depois do desvio anterior = EM SEQUENCIA
 CONE_SEQ_PARADA_MIN_S = 0.1     # em sequencia: parada minima mais curta

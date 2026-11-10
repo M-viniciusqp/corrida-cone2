@@ -44,7 +44,9 @@ class Piloto:
         self.debug_pista = False    # pede as imagens de debug da visao (--ver)
 
         self._confiavel_ant = True
-        self._peq_ant = None        # imagem pequena da pista (mede se o carro anda)
+        self._cone_novo = False     # o ultimo step() trouxe quadro NOVO da camera de cone
+        self._t_la = None           # p/ a rampa da mira (lookahead)
+        self._peq_ant = None       # imagem pequena da pista (mede se o carro anda)
         self._estado_ant = SEGUIR
         self._t_log_desvio = 0.0
         self._t_log_freio = 0.0
@@ -63,6 +65,14 @@ class Piloto:
         # durante o desvio o carro cruza a pontilhada: nao deixa a visao
         # "aprender" qual lado e a continua com a imagem desse momento
         self.vision.congelar_lado = desvio.ativo or desvio.faixa_outra
+        # mira mais perto durante o desvio (rampa, sem degrau no erro)
+        alvo_la = (config.LOOKAHEAD_DESVIO_PCT if manobra.estado == DESVIAR
+                   else config.LOOKAHEAD_PCT)
+        dt_la = 0.0 if self._t_la is None else max(0.0, min(0.2, agora - self._t_la))
+        self._t_la = agora
+        passo_la = config.LOOKAHEAD_RAMPA * dt_la
+        la = self.vision.lookahead_pct
+        self.vision.lookahead_pct = la + max(-passo_la, min(passo_la, alvo_la - la))
         self.vision.medir_cone = manobra.estado in (FREAR, ANALISAR)
         res = self.vision.process(frame_pista, debug=self.debug_pista)
         self.res = res
@@ -84,6 +94,7 @@ class Piloto:
             self.cone = self.cones.process(frame_cone, debug=debug_cone, lado_solida=lado_s)
         cone = self.cone
 
+        self._cone_novo = bool(cone_novo and frame_cone is not None)
         self._manobra(agora, cone, cone_novo, mov_pista, res)
         turn, speed = self._controle(agora, res, cone, fps)
         self.turn, self.speed = turn, speed
@@ -107,6 +118,12 @@ class Piloto:
                 lado_t = {-1: "pela DIREITA", 1: "pela ESQUERDA", 0: "?"}[desvio.lado]
                 pos = (f"cone {desvio.w_cone_cm:+.0f}cm do centro da faixa"
                        if desvio.w_cone_cm is not None else "posicao nao medida")
+                if desvio.sigma_cm is not None:
+                    pos += f" +-{desvio.sigma_cm:.0f} [{desvio.fonte_w}]"
+                if desvio.folga_cm is not None:
+                    pos += f", folga {desvio.folga_cm:+.0f}cm"
+                    if desvio.folga_cm < config.CONE_FOLGA_MIN_CM:
+                        pos += " (FOLGA CURTA)"
                 ev.append(f"[manobra] DESVIANDO {lado_t} ({pos}) | cone na MINHA faixa: "
                           f"{manobra.ultimo}")
             elif estado == SEGUIR:
@@ -138,7 +155,7 @@ class Piloto:
                 pid.marcar_retomada()
             self._confiavel_ant = True
 
-            offset = desvio.update(cone, res, agora)
+            offset = desvio.update(cone, res, agora, cone_novo=self._cone_novo)
             # o desvio move o ALVO e passa pelo PID (o termo D amortece, sem
             # passar do ponto). Usa o erro SEM o corte em +-1: o corte escondia o
             # quanto o carro passou do alvo.

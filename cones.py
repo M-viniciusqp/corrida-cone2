@@ -377,6 +377,12 @@ class ConeAvoider:
         self._w_lane = None        # medida AGORA pela camera da pista (cm)
         self._w_lane_obs = []      # medidas recentes pela camera da pista
         self.conf = 1.0            # 1 = posicao medida, <1 = so estimativa
+        self._w_cont_obs = []      # medidas cone x CONTINUA (camera de cone), 1 por quadro NOVO
+        self.n_quadros = 0         # quadros distintos da camera de cone medidos neste cone
+        self._cone_novo = False    # este passo trouxe um quadro NOVO da camera de cone?
+        self.sigma_cm = None       # incerteza (cm) da posicao estimada do cone
+        self.folga_cm = None       # folga carro-cone (pior caso) do lado escolhido
+        self.classif_w = None      # ultima posicao fundida usada na classificacao (pro log)
 
         self._alvo = 0.0           # ultimo deslocamento "bruto" com cone visivel
         self._t_visto = None       # quando viu cone pela ultima vez
@@ -408,6 +414,10 @@ class ConeAvoider:
         self._w_geo = []
         self._w_lane = None
         self._w_lane_obs = []
+        self._w_cont_obs = []
+        self.n_quadros = 0
+        self.sigma_cm = None
+        self.folga_cm = None
         self.conf = 1.0
         self._alvo = 0.0
         self._t_visto = None
@@ -417,13 +427,17 @@ class ConeAvoider:
         self._t_ant = None
 
     # ------------------------------------------------------------------
-    def update(self, cone, lane, agora=None):
+    def update(self, cone, lane, agora=None, cone_novo=True):
         """cone: ConeResult | None.  lane: LaneResult (ja validado).
+        cone_novo: este passo trouxe um quadro NOVO da camera de cone? (as medidas
+        vindas da imagem do cone so entram nas listas nesse caso: o resultado do
+        mesmo quadro nao pode ser contado varias vezes).
         Retorna o deslocamento a somar no erro da pista."""
         agora = time.time() if agora is None else agora
 
         visivel = (cone is not None and cone.found and
                    abs(cone.cx) < config.CONE_CORREDOR)
+        self._cone_novo = bool(cone_novo and visivel)
 
         # COMPROMISSO: o carro ainda esta passando um cone (chegou a ficar
         # perto e o desvio dele ainda esta no periodo de "segurar"). Um cone
@@ -461,6 +475,7 @@ class ConeAvoider:
             base_off = self._off_base(lane)
             self.off_base = base_off
             self._decidir_lado(cone, agora, e_pista, lane)
+            self._acumula(cone, lane)       # medidas deste quadro (so se o quadro do cone e novo)
             # a folga ja e geometrica (larguras de cone), entao o pedido
             # cresce sozinho com a aproximacao; a rampa so evita reagir a
             # ruido muito longe.
@@ -536,31 +551,97 @@ class ConeAvoider:
         # pista = da linha externa esquerda (-1.5*lw) ate a continua (+0.5*lw)
         return (-1.5 * lw - config.CONE_FORA_PISTA_CM) <= w <= (0.5 * lw + config.CONE_FORA_PISTA_CM)
 
+    # ------------------------------------------------------------------
+    # ESTIMADOR UNICO da posicao do cone na faixa (cm do centro da faixa direita,
+    # + = direita). TUDO que depende dessa posicao -- o lado do desvio, a
+    # classificacao "cone na minha faixa?" e o alvo lateral -- le daqui. Antes
+    # cada uma consultava as fontes numa ordem diferente e podiam discordar
+    # (decidia o lado por uma fonte e mirava o alvo por outra).
+    # ------------------------------------------------------------------
+    def _limites_w(self, s):
+        """Limites fisicos do centro do carro (cm): nao passa da CONTINUA e nao
+        vai longe demais alem da pontilhada. s>0: continua a direita."""
+        lw = config.PISTA_LARGURA_CM
+        margem_cont = config.CONE_MARGEM_CONT_CM
+        alem_pont = 0.8 * config.CONE_CRUZAR_FRAC * lw
+        if s > 0:
+            return -(lw / 2.0 + alem_pont), lw / 2.0 - margem_cont
+        return -(lw / 2.0 - margem_cont), lw / 2.0 + alem_pont
+
+    @staticmethod
+    def _med(lista, n=7):
+        return float(np.median(lista[-n:]))
+
+    def _fontes(self):
+        """[(nome, w_cm, sigma_cm)] do que foi MEDIDO (sem geometria). So listas
+        com pelo menos 1 medida entram."""
+        out = []
+        if self._w_pont_obs:
+            sg = config.CONE_SIGMA_PONT_CM * (1.0 if len(self._w_pont_obs) >= 2 else 1.5)
+            out.append(("pontilhada", self._med(self._w_pont_obs), sg))
+        if self._w_cont_obs:
+            sg = config.CONE_SIGMA_CONT_CM * (1.0 if len(self._w_cont_obs) >= 2 else 1.5)
+            out.append(("continua", self._med(self._w_cont_obs), sg))
+        if self._w_lane_obs:
+            out.append(("cam.pista", self._med(self._w_lane_obs), config.CONE_SIGMA_PISTA_CM))
+        return out
+
+    @property
+    def tem_medida(self):
+        """Ha pelo menos uma medida REAL (nao so geometria) da posicao do cone?"""
+        return bool(self._fontes())
+
+    def estimar_w(self, cone, lane, so_medido=False):
+        """-> (w_cm, sigma_cm, fonte, medido). Funde as fontes medidas por media
+        ponderada por 1/sigma^2. Se elas discordam muito, a incerteza sobe (e o
+        caso ambiguo). `medido` False = so geometria (cruzar as 2 cameras, ~21 cm de
+        erro): serve de referencia, NAO pra decidir o lado. (None, None, '-', False)
+        se nao ha como saber."""
+        f = self._fontes()
+        if f:
+            p = [1.0 / (sg * sg) for (_, _, sg) in f]
+            w = sum(pi * wi for pi, (_, wi, _) in zip(p, f)) / sum(p)
+            sig = (1.0 / sum(p)) ** 0.5
+            ws = [wi for (_, wi, _) in f]
+            spread = max(ws) - min(ws)
+            if spread > config.CONE_DISCORDA_CM:
+                sig = max(sig, spread / 2.0)
+            return w, sig, "+".join(n for (n, _, _) in f), True
+        if so_medido or cone is None or not cone.found:
+            return None, None, "-", False
+        g = self._w_geometrico(cone, lane, grava=False)
+        if g is None:
+            return None, None, "-", False
+        return g, config.CONE_SIGMA_GEO_CM, "geometria", False
+
+    def _w_quadro(self, cone, lane):
+        """Medida SO deste quadro (cone x pontilhada, senao cone x continua).
+        Pra quando as listas ainda estao vazias (ex.: decidir se o cone esta
+        fora da pista logo que aparece)."""
+        wp = self._w_pont(cone, lane)
+        if wp is not None:
+            return wp
+        return self._w_continua(cone, lane)
+
     def _estimar_w(self, cone, lane, so_medido=False):
         """Melhor estimativa AGORA da posicao do cone (cm do centro da faixa
         direita, + = direita). None se nao ha como saber."""
         if cone is None or not cone.found:
             return None
-        lw = config.PISTA_LARGURA_CM
         s = getattr(lane, "sinal_continuo", 0.0) if lane is not None else 0.0
         if abs(s) < 0.5:
             return None
-        w = self._w_pont(cone, lane)
-        if w is None and cone.d_solida_w is not None and cone.lado_solida != 0:
-            d = cone.d_solida_w * config.CONE_LARGURA_CM
-            w = (lw / 2.0 - d) if cone.lado_solida > 0 else (-lw / 2.0 + d)
-        if w is None and not so_medido:
-            w = self._w_geometrico(cone, lane, grava=False)
+        w, _, _, _ = self.estimar_w(cone, lane, so_medido=so_medido)
+        if w is None and so_medido:
+            w = self._w_quadro(cone, lane)
         return w
 
     def classificar_parado(self, cone, lane):
         """Com o carro PARADO: o cone esta na faixa do carro? -> (relevante,
-        texto). Junta o que cada medida diz, com votos:
-          - distancia ate a PONTILHADA na imagem do cone (peso 2)
-          - posicao do cone na camera da PISTA, contra as linhas da faixa (peso 2)
-          - regra simples: a continua esta a direita e o cone aparece bem do
-            lado ESQUERDO do carro -> nao esta na minha faixa (peso 1)
-        Empate ou sem informacao = relevante (na duvida, desvia)."""
+        texto). Usa a posicao FUNDIDA (estimar_w) e a incerteza dela: so IGNORA o
+        cone se ele estiver na outra faixa mesmo no pior caso (w + sigma) E a regra
+        simples do lado (eixo do carro) concordar. Sem medida real, empate ou
+        duvida = relevante (na duvida, desvia)."""
         lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
         s = getattr(lane, "sinal_continuo", 0.0) if lane is not None else 0.0
         if abs(s) < 0.5:
@@ -568,34 +649,23 @@ class ConeAvoider:
             return True, self.classif
         limite = -lw / 2.0 - config.CONE_NA_LINHA_CM - config.CONE_OUTRA_FAIXA_FOLGA_CM
 
-        def minha(w):                       # w no referencial da faixa da continua
-            return (w if s > 0 else -w) >= limite
-
-        def nome(ok):
-            return "minha" if ok else "OUTRA"
-
-        score, partes = 0, []
-        if len(self._w_pont_obs) >= 2:
-            w = float(np.median(self._w_pont_obs))
-            ok = minha(w)
-            score += 2 if ok else -2
-            partes.append("pontilhada %+.0fcm=%s" % (w, nome(ok)))
-        if len(self._w_lane_obs) >= 2:
-            w = float(np.median(self._w_lane_obs))
-            ok = minha(w)
-            score += 2 if ok else -2
-            partes.append("cam.pista %+.0fcm=%s" % (w, nome(ok)))
         # regra simples: lado do cone no eixo do carro (a continua a direita:
         # cone muito a esquerda = outra faixa)
         d = cone.lat * cw                    # cm do eixo do carro, + = direita
         lado_cont = 1 if s > 0 else -1
-        ok = (d * lado_cont) > -config.CONE_LAT_OUTRA_CM
-        score += 1 if ok else -1
-        partes.append("lat %+.0fcm=%s" % (d, nome(ok)))
-        self.classif = " | ".join(partes)
-        # so ignora o cone com evidencia forte (2+ fontes concordando); uma
-        # medida sozinha ou so a regra do lado nao basta: na duvida, desvia
-        return score > -config.CONE_IGNORA_SCORE, self.classif
+        lat_outra = (d * lado_cont) <= -config.CONE_LAT_OUTRA_CM
+        lat_txt = "lat %+.0fcm=%s" % (d, "OUTRA" if lat_outra else "minha")
+
+        w, sig, fonte, medido = self.estimar_w(cone, lane)
+        self.classif_w = w
+        if not medido or w is None:
+            self.classif = "sem medida confiavel (%s) | %s -> desvia" % (fonte, lat_txt)
+            return True, self.classif
+        dentro = w if s > 0 else -w          # + = rumo a continua
+        outra_certa = (dentro + sig) < limite
+        self.classif = "w %+.0f+-%.0fcm [%s]=%s | %s" % (
+            w, sig, fonte, "OUTRA" if outra_certa else "minha", lat_txt)
+        return (not (outra_certa and lat_outra)), self.classif
 
     def relevante(self, cone, lane):
         """O cone importa pro carro? So se esta na FAIXA DELE (ou em cima da
@@ -634,11 +704,13 @@ class ConeAvoider:
         self._w_fixo = None
 
     def reiniciar_medidas(self):
+        """Esquece as medidas da aproximacao (de longe, com o carro andando e
+        balancando) pra medir de novo com o carro parado."""
         self._congelado = False
         self._w_fixo = None
         self._w_pont_obs = []
-        """Esquece as medidas da aproximacao (de longe, com o carro andando e
-        balancando) pra medir de novo com o carro parado."""
+        self._w_cont_obs = []
+        self.n_quadros = 0
         self._w_mem = None
         self._w_obs = []
         self._w_geo = []
@@ -678,75 +750,53 @@ class ConeAvoider:
             return -1
         return None
 
+    def _escolher_lado(self, w, sig, s):
+        """Lado do desvio (+1 pela ESQUERDA / -1 pela DIREITA) pela FOLGA FISICA.
+
+        Pra cada lado: onde o carro ficaria (alvo = cone -/+ folga nominal, JA
+        cortado pelas bordas da pista: nao passa da continua nem vai longe demais
+        alem da pontilhada) e quanto sobra entre ele e o cone no PIOR caso
+        (posicao do cone +- sigma). Fica o lado com mais folga; o lado da regra
+        (cone na faixa -> cruza a pontilhada; cone na outra -> afasta) ganha
+        CONE_LADO_BONUS_CM de desempate. Antes a regra decidia sozinha e podia
+        mandar o carro pra um lado onde ele nem cabia."""
+        lw = config.PISTA_LARGURA_CM
+        folga = config.CONE_FOLGA_CM
+        w_min, w_max = self._limites_w(s)
+        cruza = 1 if s > 0 else -1          # lado que cruza a pontilhada
+
+        def clr(lado):                      # folga centro-do-carro -> centro-do-cone, pior caso
+            if lado > 0:
+                wt = max(w_min, min(w_max, w - folga))
+                return (w - sig) - wt
+            wt = max(w_min, min(w_max, w + folga))
+            return wt - (w + sig)
+
+        dentro = w if s > 0 else -w         # + = rumo a continua
+        na_outra = dentro < -lw / 2.0 - config.CONE_NA_LINHA_CM
+        pref = -cruza if na_outra else cruza
+        sc = {l: clr(l) + (config.CONE_LADO_BONUS_CM if l == pref else 0.0) for l in (1, -1)}
+        lado = 1 if sc[1] > sc[-1] else (-1 if sc[-1] > sc[1] else pref)
+        # folga de borda a borda (carro e cone tem largura)
+        self.folga_cm = (clr(lado) - config.CARRO_LARGURA_CM / 2.0
+                         - config.CONE_LARGURA_CM / 2.0)
+        self.na_faixa = not na_outra
+        return lado
+
     def _propor_lado(self, cone, lane):
-        """-> (lado, medido). `medido` = veio da distancia ate a continua na
-        imagem do cone; senao e so um palpite inicial."""
+        """-> (lado, medido). `medido` = veio de medida real da posicao do cone
+        (estimar_w); senao e so o palpite padrao. So a GEOMETRIA (2 cameras
+        cruzadas, ~21 cm de erro) nunca decide: nesse caso cruza a pontilhada."""
         self.na_faixa = None
-        self.dist_cont_cm = None
+        self.dist_cont_cm = (cone.d_solida_w * config.CONE_LARGURA_CM
+                             if cone.d_solida_w is not None else None)
         pont = self._lado_da_pontilhada(lane)
-
-        # 0) posicao do cone medida PELA CAMERA DA PISTA (a melhor medida:
-        # base do cone x centro da faixa na mesma fileira da imagem)
-        lista = self._w_lane_obs + ([self._w_lane] if self._w_lane is not None else [])
-        if lista and pont is not None:
-            w = float(np.median(lista[-7:]))
-            lw = config.PISTA_LARGURA_CM
-            dentro = w if pont > 0 else -w          # + = rumo a continua
-            cone_na_outra = dentro < -lw / 2.0 - config.CONE_NA_LINHA_CM
-            self.na_faixa = not cone_na_outra
-            return (-pont if cone_na_outra else pont), True
-
-        # 0) cone x PONTILHADA na mesma fileira (a regra do usuario, literal)
-        wp = self._w_pont_ok(cone, lane)
-        if wp is not None and pont is not None:
-            lw = config.PISTA_LARGURA_CM
-            dentro = wp if pont > 0 else -wp
-            cone_na_outra = dentro < -lw / 2.0 - config.CONE_NA_LINHA_CM
-            self.na_faixa = not cone_na_outra
-            return (-pont if cone_na_outra else pont), True
-
-        # 1) a regra do usuario, medida NA IMAGEM DO CONE
-        if (cone.d_solida_w is not None and cone.lado_solida != 0 and
-                cone.altura >= config.CONE_MEDIDA_ALTURA_MIN and
-                (cone.altura <= config.CONE_MEDIDA_ALTURA_MAX or self._w_mem is None)):
-            d = cone.d_solida_w
-            larg_pista = config.PISTA_LARGURA_CM / config.CONE_LARGURA_CM
-            na_linha = config.CONE_NA_LINHA_CM / config.CONE_LARGURA_CM
-            continua_dir = cone.lado_solida > 0
-            cruza = 1 if continua_dir else -1       # lado que cruza a pontilhada
-            self.dist_cont_cm = d * config.CONE_LARGURA_CM
-            if abs(d - larg_pista) < na_linha:
-                # em cima da pontilhada: so cabe passando pelo lado de FORA
-                # da faixa (entre o cone e a continua nao cabe o carro)
-                return cruza, True
-            self.na_faixa = d < larg_pista
-            if self.na_faixa:
-                return cruza, True              # cone na faixa: cruza a pontilhada
-            return -cruza, True                 # cone na outra: afasta
-
-        # 2) a continua nao esta na imagem agora, mas este cone ja foi medido
-        if self._w_mem is not None and pont is not None:
-            w = self._w_mem
-            larg_pista = config.PISTA_LARGURA_CM
-            continua_dir = pont > 0          # pont>0 -> pontilhada a esquerda
-            # coordenada "para dentro da faixa": + = em direcao a continua
-            dentro = w if continua_dir else -w
-            if dentro > -larg_pista / 2.0 - config.CONE_NA_LINHA_CM:
-                return pont, True            # na sua faixa (ou na linha): cruza
-            return -pont, True               # na outra faixa: afasta
-
-        # 3) sem medida da posicao do cone: onde o carro REALMENTE esta (visao da
-        # pista) + o quanto o cone esta ao lado dele (larguras de cone). Nao
-        # precisa ver linha nenhuma.
-        if pont is not None:
-            w = self._w_geometrico(cone, lane, grava=False)
-            if w is not None:
-                lw = config.PISTA_LARGURA_CM
-                dentro = w if pont > 0 else -w        # + = rumo a continua
-                cone_na_outra = dentro < -lw / 2.0 - config.CONE_NA_LINHA_CM
-                self.na_faixa = not cone_na_outra
-                return (-pont if cone_na_outra else pont), False
-        return (-1 if config.CONE_LADO_PADRAO == "direita" else 1), False
+        if pont is None:
+            return (-1 if config.CONE_LADO_PADRAO == "direita" else 1), False
+        w, sig, fonte, medido = self.estimar_w(cone, lane)
+        if w is None or not medido:
+            return pont, False
+        return self._escolher_lado(w, sig, 1.0 if pont > 0 else -1.0), True
 
     def _decidir_lado(self, cone, agora, e_pista, lane):
         """Mantem o lado ESTAVEL enquanto for o mesmo cone.
@@ -773,6 +823,9 @@ class ConeAvoider:
             self._w_obs = []
             self._w_geo = []
             self._w_lane_obs = []
+            self._w_pont_obs = []
+            self._w_cont_obs = []
+            self.n_quadros = 0
             return
 
         # o lado atual era so um PALPITE (a faixa continua ainda nao tinha
@@ -830,74 +883,69 @@ class ConeAvoider:
             return None
         return wp
 
+    def _w_continua(self, cone, lane):
+        """Posicao do cone (cm do centro da faixa direita, + = direita) pela
+        distancia ate a CONTINUA na imagem do cone. None se nao deu."""
+        if cone.d_solida_w is None or cone.lado_solida == 0:
+            return None
+        lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
+        d = cone.d_solida_w * cw
+        return (lw / 2.0 - d) if cone.lado_solida > 0 else (-lw / 2.0 + d)
+
     def _w_cone(self, cone, lane):
         if self._congelado and self._w_fixo is not None:
             self.conf = 1.0
             return self._w_fixo, True
         return self._w_cone_medir(cone, lane)
 
-    def _w_cone_medir(self, cone, lane):
-        """Posicao lateral do cone, em cm a partir do CENTRO da pista
-        (+ = direita). (valor, medido). medido=True vem da distancia ate a
-        continua na imagem do cone (exata, nao depende do giro do carro);
-        senao e uma estimativa pela geometria (aceita a longe)."""
-        lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
-        g = self._w_geometrico(cone, lane, grava=True)     # mantem a memoria geometrica
+    def _acumula(self, cone, lane):
+        """Guarda as medidas deste passo. As que vem da imagem do CONE so entram
+        quando o quadro e NOVO (o resultado do mesmo quadro nao pode virar varias
+        'amostras independentes'). A leitura da camera da pista e nova a cada passo."""
+        if self._congelado:
+            return
         if self._w_lane is not None:
             self._w_lane_obs.append(self._w_lane)
             if len(self._w_lane_obs) > 12:
                 self._w_lane_obs.pop(0)
+        if not self._cone_novo:
+            return
+        self.n_quadros += 1
+        self._w_geometrico(cone, lane, grava=True)      # memoria geometrica (so referencia)
+        if cone.altura < config.CONE_MEDIDA_ALTURA_MIN:
+            return                                       # longe demais: leitura ruidosa
         wp = self._w_pont_ok(cone, lane)
         if wp is not None:
             self._w_pont_obs.append(wp)
             if len(self._w_pont_obs) > 12:
                 self._w_pont_obs.pop(0)
-            if cone.altura >= config.CONE_MEDIDA_ALTURA_MIN:
-                self._w_obs.append(wp)
-                if len(self._w_obs) > 25:
-                    self._w_obs.pop(0)
-                self._w_mem = float(np.median(self._w_obs))
-            self.conf = 1.0
-            self.fonte_w = "pontilhada"
-            return self._w_mem if self._w_mem is not None else wp, True
-        if self._w_lane_obs:
-            # o cone e fixo: mediana das ultimas medidas da camera da pista
-            w = float(np.median(self._w_lane_obs[-7:]))
+        wc = self._w_continua(cone, lane)
+        # de muito perto a reta ajustada piora (curva): so entra se ainda nao ha medida
+        if wc is not None and (cone.altura <= config.CONE_MEDIDA_ALTURA_MAX
+                               or not self._w_cont_obs):
+            self._w_cont_obs.append(wc)
+            if len(self._w_cont_obs) > 12:
+                self._w_cont_obs.pop(0)
+
+    def _w_cone_medir(self, cone, lane):
+        """Posicao lateral do cone, em cm a partir do CENTRO da pista
+        (+ = direita), pelo estimador unico. (valor, medido). medido=False e so
+        a geometria (aceita a longe, com confianca reduzida)."""
+        w, sig, fonte, medido = self.estimar_w(cone, lane)
+        if w is None:
+            return None, False
+        self.sigma_cm = sig
+        self.fonte_w = fonte
+        if medido:
             self._w_mem = w
             self.conf = 1.0
-            self.fonte_w = "cam.pista"
             return w, True
-        if (cone.d_solida_w is not None and cone.lado_solida != 0 and
-                cone.altura >= config.CONE_MEDIDA_ALTURA_MIN):
-            d = cone.d_solida_w * cw
-            w = (lw / 2.0 - d) if cone.lado_solida > 0 else (-lw / 2.0 + d)
-            # o cone e FIXO na pista: a posicao dele em cm na faixa nao muda
-            # quando o carro se mexe. A medida e precisa com o cone ainda
-            # longe e piora quando ele chega perto (em curva a reta ajustada
-            # desvia), entao: mediana das medidas, ignorando as de muito
-            # perto assim que ja ha medidas boas.
-            if (cone.altura <= config.CONE_MEDIDA_ALTURA_MAX or not self._w_obs):
-                self._w_obs.append(w)
-                if len(self._w_obs) > 25:
-                    self._w_obs.pop(0)
-                self._w_mem = float(np.median(self._w_obs))
-            self.conf = 1.0
-            self.fonte_w = "continua"
-            return self._w_mem, True
-        if self._w_mem is not None:
-            # a continua saiu de vista (curva, oclusao): usa a ultima medida
-            self.conf = 1.0
-            return self._w_mem, True
         if lane is None or not lane.hw_px:
-            return None, False
-        w = g
-        if w is None:
             return None, False
         # confianca sobe com o numero de estimativas (o cone e fixo: a
         # mediana de varias e bem melhor que uma so)
         n = len(self._w_geo)
         self.conf = max(config.CONE_CONF_GEO, min(1.0, 0.4 + 0.2 * n))
-        self.fonte_w = "geometria"
         return w, False
 
     def _w_geometrico(self, cone, lane, grava):
@@ -941,12 +989,7 @@ class ConeAvoider:
 
         # limites fisicos: nao passa da CONTINUA, e nao vai longe demais
         # alem da pontilhada (a faixa do outro lado tem uma largura so)
-        margem_cont = config.CONE_MARGEM_CONT_CM
-        alem_pont = 0.8 * config.CONE_CRUZAR_FRAC * lw
-        if s > 0:       # continua a direita
-            w_min, w_max = -(lw / 2.0 + alem_pont), lw / 2.0 - margem_cont
-        else:
-            w_min, w_max = -(lw / 2.0 - margem_cont), lw / 2.0 + alem_pont
+        w_min, w_max = self._limites_w(s)
         w_t = max(w_min, min(w_max, w_t))
         self.w_cone_cm, self.w_alvo_cm = w_cone, w_t
         self._faixa_alvo_outra = (w_t < -lw / 2.0 - 2.0) if s > 0 else (w_t > lw / 2.0 + 2.0)
@@ -1006,6 +1049,9 @@ class ConeAvoider:
             self._w_geo = []
             self._w_lane = None
             self._w_lane_obs = []
+            self._w_pont_obs = []
+            self._w_cont_obs = []
+            self.n_quadros = 0
             self.prox = 0.0
             self.larg = 0.0
             self.ativo = False

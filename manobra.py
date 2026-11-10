@@ -139,7 +139,14 @@ class Manobra:
         if self.estado == ANALISAR:
             desvio.liberado = False
             analise_s = config.CONE_SEQ_ANALISE_S if self.seq else config.CONE_ANALISE_S
-            if agora - self.t_estado >= analise_s:
+            n_min = (config.CONE_ANALISE_QUADROS_SEQ if self.seq
+                     else config.CONE_ANALISE_QUADROS)
+            dt_an = agora - self.t_estado
+            # decide com N quadros DISTINTOS da camera de cone e pelo menos uma medida
+            # real da posicao (nao so geometria); senao espera ate CONE_ANALISE_MAX_S
+            pronto = ((dt_an >= analise_s and desvio.n_quadros >= n_min
+                       and desvio.tem_medida) or dt_an >= config.CONE_ANALISE_MAX_S)
+            if pronto:
                 if cone is not None and cone.found:
                     rel, txt = desvio.classificar_parado(cone, lane)
                     self.ultimo = txt

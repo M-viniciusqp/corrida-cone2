@@ -29,6 +29,18 @@
 4. **DESVIAR**: decisao congelada (lado + posicao), direcao nunca vira pro lado do cone; termina
    quando o desvio acaba e o carro volta pra faixa.
 
+## Posicao do cone e escolha do lado (cones.py)
+- **Um estimador so** (`ConeAvoider.estimar_w`): funde pontilhada, continua (camera de cone) e,
+  se ligada, camera de pista, ponderando por 1/sigma^2 (`CONE_SIGMA_*`). Lado, classificacao
+  "cone na minha faixa?" e alvo lateral leem todos dele. Fontes discordando = sigma maior.
+- **Geometria** (cruzar as 2 cameras, ~21 cm de erro) nunca decide o lado: sem medida real, cruza a pontilhada.
+- **Lado por folga fisica** (`_escolher_lado`): para cada lado calcula a folga carro-cone no pior
+  caso (posicao +- sigma) ja com o alvo cortado pelas bordas; o lado da regra so ganha um bonus.
+  O log do DESVIANDO mostra `w +-sigma [fonte], folga Xcm` e avisa `FOLGA CURTA`.
+- **Amostras** das listas so entram com quadro NOVO da camera de cone; o ANALISAR espera
+  `CONE_ANALISE_QUADROS` quadros distintos (ate `CONE_ANALISE_MAX_S`).
+- `python sim/avaliar_decisao.py` mede lado/posicao contra a verdade do simulador.
+
 ## Como testar sem o carro
 ```
 python sim/cenarios.py --pista S --todas          # uma bateria
