@@ -693,7 +693,22 @@ class ConeAvoider:
         """Trava o lado e a posicao do cone na que foi medida COM O CARRO
         PARADO. Com o cone ao lado do carro a imagem nao serve mais pra medir
         (a posicao virava -25, -56, +2 cm e o lado trocava no meio da
-        passagem)."""
+        passagem).
+
+        Antes de travar, REDECIDE o lado com a estimativa FINAL (carro parado). O
+        _decidir_lado so troca de lado depois de a discordancia persistir
+        CONE_TROCA_PERSISTE_S, e a analise termina antes disso: no teste real o lado
+        saiu da 1a medida (-4 cm [pontilhada]) e a melhor (-20 cm [pontilhada+continua],
+        que daria DIREITA) chegou 0,14 s depois e foi descartada -> foi pela ESQUERDA,
+        pra fora da pista."""
+        # So com a CONTINUA entrando na estimativa: so pela pontilhada o erro e de ~1 largura
+        # de faixa (no simulador acertou o lado em 0 de 4), e nao pode derrubar um lado ja decidido.
+        if config.CONE_REDECIDE_AO_CONGELAR and self._w_cont_obs:
+            prop, medido = self._propor_lado(cone, lane)
+            if medido:
+                self.lado = prop
+                self._lado_medido = True
+                self._disc_t = None
         w, _ = self._w_cone(cone, lane)
         if w is not None and self.lado != 0:
             self._w_fixo = w

@@ -340,9 +340,20 @@ CONE_GATILHO_ALTURA = 0.20     # altura do cone na imagem que dispara a parada. 
 # A distancia de frenagem cai com o quadrado da velocidade e a camera de cone tem ~0.25 s de
 # atraso (15 fps + 2 quadros de confirmacao). No teste real ele parava com o cone colado (alt 0.9).
 # 0 desliga.
-CONE_VEL_APROXIMA = 0.20
+CONE_VEL_APROXIMA = 0.22    # velocidade ao chegar no cone. Abaixo de ~0.22 o motor NAO sai do repouso
+                            # (teste real: parado 6 s a 0.20) -> o ANTI_TRAVA abaixo da o empurrao.
+
+# ANTI-TRAVA: mandando velocidade baixa e a imagem da pista NAO mexe (carro nao saiu do lugar), da um
+# pulso curto de velocidade alta pra vencer o atrito; depois ele segue na velocidade baixa (em
+# movimento o motor aguenta ~0.20). Sem isso, andar devagar = carro parado.
+ANTI_TRAVA_DIFF = 2.0       # 'chao' abaixo disso (mesma metrica do CONE_PARADO_DIFF) = nao esta andando
+ANTI_TRAVA_S = 0.5          # ... por esse tempo seguido
+ANTI_TRAVA_PULSO_S = 0.35   # duracao do pulso
+ANTI_TRAVA_VEL = 0.35       # velocidade do pulso
 CONE_APROX_ALTURA = 0.10
-CONE_VETO_FORA_ALTURA = 0.45   # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
+CONE_REDECIDE_AO_CONGELAR = False  # redecide o lado ao fim do ANALISAR. No simulador (16 voltas) NAO ajudou:
+                                   # 43/52 lados certos ligado contra 45/51 desligado.
+CONE_VETO_FORA_ALTURA = 0.45  # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
 CONE_GATILHO_QUADROS = 2       # quadros seguidos vendo o cone no gatilho (evita falso positivo)
 CONE_PARADA_MIN_S = 0.2         # tempo minimo parado antes de analisar (inercia dos motores)
@@ -390,7 +401,8 @@ CONE_SIGMA_GEO_CM   = 21.0     # geometria cruzando as 2 cameras: NUNCA decide o
 # ~2 quadros, e o mesmo quadro era contado varias vezes). Passou de CONE_ANALISE_MAX_S sem medida
 # boa: segue com o que tem (lado padrao = cruza a pontilhada).
 CONE_ANALISE_QUADROS     = 5
-CONE_ANALISE_QUADROS_SEQ = 3   # cone em sequencia: analise mais curta
+CONE_ANALISE_QUADROS_SEQ = 5   # cone em sequencia: antes 3 -> a analise acabava ANTES da medida da
+                               # continua chegar (teste real: lado decidido com 1 medida so pela pontilhada)
 CONE_ANALISE_MAX_S       = 0.8
 # Escolha do lado por FOLGA FISICA: pra cada lado calcula-se o quanto sobra entre o carro (ja
 # cortado pelas bordas da pista) e o cone, no PIOR caso (posicao +- sigma). Fica o lado com mais
@@ -401,7 +413,7 @@ CONE_DISCORDA_CM    = 12.0     # fontes boas discordando por mais que isso: sigm
 CONE_FORA_PISTA_CM = 25.0        # cone alem da linha externa por mais que isso = fora da pista: nao para
 CONE_SEQ_JANELA_S = 3.0         # cone que aparece ate esse tempo depois do desvio anterior = EM SEQUENCIA
 CONE_SEQ_PARADA_MIN_S = 0.1     # em sequencia: parada minima mais curta
-CONE_SEQ_ANALISE_S = 0.1        # em sequencia: analise mais curta
+CONE_SEQ_ANALISE_S = 0.15       # em sequencia: igual a analise normal (antes 0.1)
 CONE_ARRANQUE_VEL = 0.35        # empurrao ao sair da parada (vence o atrito do repouso)
 CONE_ARRANQUE_S = 0.4           # duracao do empurrao
 CONE_FAIXA_PERSISTE = False     # depois de desviar FICA na outra faixa; so troca quando um cone na faixa dela pedir

@@ -52,6 +52,9 @@ class Piloto:
         self._t_log_desvio = 0.0
         self._t_log_freio = 0.0
         self._t_log_aprox = 0.0
+        self._mov_pista = None      # ultima medida de movimento do chao (anti-trava)
+        self._t_trava = None        # desde quando manda andar e o chao nao mexe
+        self._pulso_ate = 0.0       # ate quando dura o pulso anti-trava
 
     # ------------------------------------------------------------------
     def step(self, agora, frame_pista, frame_cone=None, cone_novo=False,
@@ -89,6 +92,7 @@ class Piloto:
         mov_pista = (float(np.abs(peq - self._peq_ant).mean())
                      if self._peq_ant is not None else None)
         self._peq_ant = peq
+        self._mov_pista = mov_pista
 
         # cone: so reprocessa quadro novo
         if frame_cone is None:
@@ -206,6 +210,8 @@ class Piloto:
             if fps < config.FPS_MINIMO_SEGURO:
                 speed *= max(0.35, fps / config.FPS_MINIMO_SEGURO)
 
+            speed = self._anti_trava(agora, speed)
+
         elif vision.lost_frames <= (config.MAX_FRAMES_PERDIDO_DESVIO
                                     if vision.em_desvio else config.MAX_FRAMES_PERDIDO):
             # perdeu agora (ou leitura degradada): NAO congela o esterco velho,
@@ -224,6 +230,27 @@ class Piloto:
             pid.reset()
             desvio.reset()
         return turn, speed
+
+    def _anti_trava(self, agora, speed):
+        """Andando devagar o motor pode nao vencer o atrito do repouso (teste real: parado por
+        6 s a 0.20). Mandando andar e a imagem da pista parada por ANTI_TRAVA_S, da um pulso
+        curto de velocidade alta; em movimento ele segue na velocidade baixa."""
+        if (speed < 0.05 or self.manobra.parado or not config.ANTI_TRAVA_S
+                or self._mov_pista is None):
+            self._t_trava = None
+            return speed
+        if self._mov_pista < config.ANTI_TRAVA_DIFF:
+            if self._t_trava is None:
+                self._t_trava = agora
+            elif agora - self._t_trava >= config.ANTI_TRAVA_S:
+                self._pulso_ate = agora + config.ANTI_TRAVA_PULSO_S
+                self._t_trava = None
+                self.eventos.append("[motor] carro nao saiu do lugar -> pulso anti-trava")
+        else:
+            self._t_trava = None
+        if agora < self._pulso_ate:
+            return max(speed, config.ANTI_TRAVA_VEL)
+        return speed
 
     def _log_desvio(self, agora, res, cone, offset, turn, speed):
         """Log RAPIDO enquanto desvia (o resumo de 2 s e lento demais)."""
