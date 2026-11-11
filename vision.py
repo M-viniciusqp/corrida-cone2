@@ -124,6 +124,7 @@ class LaneVision:
         # Piloto liga isso so com o carro PARANDO/ANALISANDO: achar o cone na
         # imagem da pista custa ~1/3 do tempo da visao e so serve nessa hora.
         self.medir_cone = False
+        self.ult_mask = None          # mascara de linhas do ultimo quadro (ROI), p/ estrada.py
 
         # carro em cima da faixa OPOSTA (depois de cruzar a pontilhada)?
         self._prev_media = None     # centro da faixa (px) no quadro anterior
@@ -214,6 +215,7 @@ class LaneVision:
         roi = frame[y0:, :]
         mask = self.threshold(roi)
         roi_h = mask.shape[0]
+        self.ult_mask = mask          # estrada.py reaproveita (posicao do carro entre as continuas)
 
         ys = np.linspace(roi_h - 5, 5, config.SCAN_ROWS).astype(int)
 

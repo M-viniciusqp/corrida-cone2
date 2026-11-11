@@ -57,10 +57,11 @@ class ConeResult:
     __slots__ = ("found", "cx", "altura", "proximidade", "bbox",
                  "n_candidatos", "debug_view", "debug_mask", "lat", "larg",
                  "toca_base", "d_solida_w", "lado_solida", "dx_pont_w", "fora_continua",
-                 "w_mapa", "mapa_conf")
+                 "w_mapa", "mapa_conf", "novo")
 
     def __init__(self):
         self.found = False
+        self.novo = False           # e outro cone (nao o seguido no quadro anterior)
         self.w_mapa = None          # posicao do cone ENTRE as duas continuas (cm, 0 = centro da faixa da
                                     # direita, + direita), casando as linhas vistas com o padrao C-P-C
         self.mapa_conf = 0.0        # folga do melhor casamento sobre o segundo melhor
@@ -90,6 +91,8 @@ class ConeVision:
         self._dx_pont = None
         self._mapa = (None, 0.0)
         self._trk = None            # caixa do cone escolhido no quadro anterior (rastreio)
+        self._W = None
+        self.novo = False           # o cone escolhido neste quadro e OUTRO (nao o do quadro anterior)
         # fecha os buracos que o brilho (reflexo) do plastico abre no cone
         self._k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
 
@@ -114,6 +117,13 @@ class ConeVision:
         if not cands:
             self._trk = None
             return None
+        # cone que ja esta AO LADO do carro (na borda da imagem) e o que esta sendo passado: nao
+        # pode esconder o PROXIMO cone, que esta mais longe mas na frente
+        W = self._W if self._W else 320
+        frente = [b for b in cands
+                  if abs(((b[0] + b[2] / 2.0) - W / 2.0) / (W / 2.0)) < config.CONE_ESCOLHA_X_MAX]
+        if frente:
+            cands = frente
         perto = max(cands, key=lambda b: (b[1] + b[3], b[3]))
         escolhido = perto
         if self._trk is not None:
@@ -128,6 +138,9 @@ class ConeVision:
             mais_perto_px = (perto[1] + perto[3]) - (mesmo[1] + mesmo[3])
             if dist(mesmo) <= tol and mais_perto_px < config.CONE_TROCA_BASE_PCT * H:
                 escolhido = mesmo
+            self.novo = not (dist(escolhido) <= tol)     # mudou de cone (o anterior ficou pra tras)
+        else:
+            self.novo = True
         self._trk = escolhido
         return escolhido
 
@@ -146,6 +159,7 @@ class ConeVision:
         -1 = a ESQUERDA, 0 = nao sabe (nao mede a distancia ate ela)."""
         res = ConeResult()
         H, W = frame.shape[:2]
+        self._W = W
         y0 = int(H * config.CONE_ROI_TOP_PCT)
         roi = frame[y0:, :]
         m = self.mask(roi)
@@ -183,7 +197,9 @@ class ConeVision:
             res.n_candidatos += 1
             cands.append((x, y + y0, w, h))
 
+        self.novo = False
         melhor = self._escolhe(cands, H)
+        res.novo = self.novo
         if melhor is not None:
             x, y, w, h = melhor
             res.found = True
