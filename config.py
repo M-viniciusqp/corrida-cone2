@@ -375,6 +375,17 @@ CONE_MARGEM_EXT_CM = CARRO_LARGURA_CM / 2.0 + 1.0
 # "Alem da continua" so vale com o cone pelo menos isto (larguras de cone) do lado da continua em relacao
 # ao eixo do carro: cone na frente do carro nao e "fora da pista" (teste real: foi ignorado com lat +0.3w)
 CONE_ALEM_CONT_LAT_MIN_W = 1.5
+# ---- DESVIO POR FAIXA (estrategia nova) ----
+# A pista sao duas faixas entre duas continuas; o carro anda perto da pontilhada. O cone esta numa faixa
+# (o lado da pontilhada em que ele cai) e o carro passa pela OUTRA, no minimo no centro dela.
+# Qualquer cone dentro das duas continuas e obstaculo; so ignora cone fora delas. 0 = estrategia antiga.
+CONE_ESTRATEGIA_FAIXA = 1
+CONE_NA_PISTA_MARGEM_CM = 2.0      # cone ate (meia largura dele + isto) alem da continua ainda conta
+# ---- ESCOLHA DO CONE (camera do cone) ----
+CONE_CHAO_MIN_PCT = 0.30           # a base do cone tem que estar abaixo disso (fracao da altura): acima e
+                                   # fundo da sala (cadeira, mochila). Suba se a camera for inclinada pra baixo.
+CONE_AFINA_MAX = 0.85              # largura do terco de cima / terco de baixo: cone afina (~0.3-0.6). 0 desliga
+CONE_TROCA_BASE_PCT = 0.06         # so troca o cone seguido por outro se este estiver mais perto por isso
 CONE_BASE_FALSO_ALT = 0.15
 # Cone sem continua do lado de fora mas com uma continua a ate essa distancia (larguras de cone) do lado
 # de dentro = esta ALEM da continua (fora da pista): nao e obstaculo.

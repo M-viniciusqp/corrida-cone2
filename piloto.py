@@ -121,20 +121,21 @@ class Piloto:
             elif estado == ANALISAR:
                 ev.append(f"[manobra] parou em {agora - manobra.t_ref:.2f}s -> ANALISANDO o cone")
             elif estado == SEGUIR and manobra.ignorando:
-                ev.append(f"[manobra] cone NAO esta na minha faixa -> segue em frente "
+                ev.append(f"[manobra] cone NAO e obstaculo -> segue em frente "
                           f"({manobra.ultimo})")
             elif estado == DESVIAR:
                 lado_t = {-1: "pela DIREITA", 1: "pela ESQUERDA", 0: "?"}[desvio.lado]
-                pos = (f"cone {desvio.w_cone_cm:+.0f}cm do centro da faixa"
+                pos = (f"cone {desvio.w_cone_cm:+.0f}cm do centro da faixa direita"
                        if desvio.w_cone_cm is not None else "posicao nao medida")
+                if desvio.w_alvo_cm is not None:
+                    pos += f", carro vai pra {desvio.w_alvo_cm:+.0f}cm"
                 if desvio.sigma_cm is not None:
                     pos += f" +-{desvio.sigma_cm:.0f} [{desvio.fonte_w}]"
                 if desvio.folga_cm is not None:
                     pos += f", folga {desvio.folga_cm:+.0f}cm"
                     if desvio.folga_cm < config.CONE_FOLGA_MIN_CM:
                         pos += " (FOLGA CURTA)"
-                ev.append(f"[manobra] DESVIANDO {lado_t} ({pos}) | cone na MINHA faixa: "
-                          f"{manobra.ultimo}")
+                ev.append(f"[manobra] DESVIANDO {lado_t} ({pos}) | {manobra.ultimo}")
             elif estado == SEGUIR:
                 ev.append("[manobra] desvio terminado -> seguindo a faixa")
             if self._estado_ant in (FREAR, ANALISAR) and estado not in (FREAR, ANALISAR):
