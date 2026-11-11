@@ -358,6 +358,12 @@ CONE_REDECIDE_AO_CONGELAR = False # redecide o lado ao fim do ANALISAR. No simul
                                    # 43/52 lados certos ligado contra 45/51 desligado.
 CONE_VETO_FORA_ALTURA = 0.45  # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
+# Pecinha vermelha encostada na borda de baixo da camera do cone e menor que isso (altura/imagem) = o fio
+# do proprio carro, nao um cone. (teste real: virava 'cone a vista alt 0.08' e parava o carro)
+CONE_BASE_FALSO_ALT = 0.15
+# Cone sem continua do lado de fora mas com uma continua a ate essa distancia (larguras de cone) do lado
+# de dentro = esta ALEM da continua (fora da pista): nao e obstaculo.
+CONE_ALEM_CONT_MAX_LARGS = 3.0
 CONE_GATILHO_QUADROS = 2       # quadros seguidos vendo o cone no gatilho (evita falso positivo)
 CONE_PARADA_MIN_S = 0.2         # tempo minimo parado antes de analisar (inercia dos motores)
 CONE_PARADA_MAX_S = 1.5         # se nao parar de se mexer nesse tempo, analisa assim mesmo

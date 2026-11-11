@@ -56,10 +56,12 @@ import config
 class ConeResult:
     __slots__ = ("found", "cx", "altura", "proximidade", "bbox",
                  "n_candidatos", "debug_view", "debug_mask", "lat", "larg",
-                 "toca_base", "d_solida_w", "lado_solida", "dx_pont_w")
+                 "toca_base", "d_solida_w", "lado_solida", "dx_pont_w", "fora_continua")
 
     def __init__(self):
         self.found = False
+        self.fora_continua = False  # ha linha continua do lado de DENTRO e nenhuma do lado de fora:
+                                    # o cone esta ALEM da continua (fora da pista)
         self.cx = 0.0             # -1..+1, centro do cone na imagem
         self.lat = 0.0            # distancia lateral em LARGURAS DE CONE
         self.larg = 0.0           # largura do cone em unidades de x (-1..+1)
@@ -80,6 +82,8 @@ class ConeResult:
 class ConeVision:
     def __init__(self):
         self._k_open = np.ones((3, 3), np.uint8)
+        self._fora_cont = False
+        self._dx_pont = None
         # fecha os buracos que o brilho (reflexo) do plastico abre no cone
         self._k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
 
@@ -120,6 +124,11 @@ class ConeVision:
                 continue
             if area / (w * h) < config.CONE_PREENCHIMENTO_MIN:
                 continue
+            # pecinha vermelha colada na borda de baixo = o FIO/pe do proprio carro que aparece
+            # no canto da imagem (no teste real virava "cone a vista alt 0.08" e parava o carro).
+            # Cone de verdade encostado embaixo e grande.
+            if (y + y0 + h) >= H - 2 and h < config.CONE_BASE_FALSO_ALT * H:
+                continue
             res.n_candidatos += 1
             # o mais ALTO na imagem = o mais perto = o que importa
             if melhor is None or h > melhor[3]:
@@ -148,10 +157,12 @@ class ConeVision:
                 res.proximidade = float(np.clip((res.altura - a) / (b - a), 0.0, 1.0))
 
             self._dx_pont = None
+            self._fora_cont = False
             if lado_solida:
                 res.lado_solida = 1 if lado_solida > 0 else -1
             res.d_solida_w = self._dist_solida(frame, melhor, res.lado_solida)
             res.dx_pont_w = self._dx_pont
+            res.fora_continua = self._fora_cont
 
         if debug:
             res.debug_view = self._draw(frame, res)
@@ -290,6 +301,13 @@ class ConeVision:
                    if p >= pres and n >= 5 and (x - xc) * sinal > lim
                    and abs(x - xc) / w_ref <= d_max * 2.0]
         if not solidas:
+            # nenhuma continua do lado de fora do cone, mas ha uma LOGO do lado de dentro:
+            # o cone esta ALEM da continua, fora da pista (nao e obstaculo)
+            opostas = [x for (x, p, n) in todas
+                       if p >= pres and n >= 5 and (xc - x) * sinal > lim
+                       and (xc - x) / w_ref <= config.CONE_ALEM_CONT_MAX_LARGS]
+            if opostas:
+                self._fora_cont = True
             return None
         # a CONTINUA e a mais EXTERNA daquele lado. A pontilhada, de perto,
         # tem tracos que se fundem e tambem passa por "presente em todas as
@@ -540,10 +558,24 @@ class ConeAvoider:
             self.offset = 0.0
         return self.offset
 
+    @staticmethod
+    def _alem_da_continua(cone, lane):
+        """Cone ALEM da continua: a camera ve a continua entre o carro e o cone (fora_continua) E o
+        cone esta do lado da continua em relacao ao eixo do carro. O segundo teste evita tomar por
+        'fora da pista' um cone da faixa de la, que tem a linha externa dele do lado de dentro."""
+        if not getattr(cone, "fora_continua", False):
+            return False
+        s = getattr(lane, "sinal_continuo", 0.0) if lane is not None else 0.0
+        if abs(s) < 0.5:
+            return False
+        return (cone.lat * (1.0 if s > 0 else -1.0)) > 0.0
+
     def no_caminho(self, cone, lane):
         """O cone esta onde o carro pode bater? False = bem fora da pista (alem
         da linha externa de qualquer lado): nao vale parar por ele. Sem
         estimativa confiavel devolve True (na duvida, trata como obstaculo)."""
+        if self._alem_da_continua(cone, lane):
+            return False            # a camera ve a continua ENTRE o carro e o cone
         w = self._estimar_w(cone, lane, so_medido=True)
         if w is None:
             return True             # so geometria (ruidosa): na duvida e obstaculo
@@ -648,6 +680,12 @@ class ConeAvoider:
             self.classif = "sem lado da continua"
             return True, self.classif
         limite = -lw / 2.0 - config.CONE_NA_LINHA_CM - config.CONE_OUTRA_FAIXA_FOLGA_CM
+
+        # a camera ve a CONTINUA entre o carro e o cone (e nenhuma depois dele): o cone esta
+        # fora da pista, alem da linha externa. Nao e obstaculo.
+        if self._alem_da_continua(cone, lane):
+            self.classif = "cone ALEM da continua (fora da pista): nao desvia"
+            return False, self.classif
 
         # regra simples: lado do cone no eixo do carro (a continua a direita:
         # cone muito a esquerda = outra faixa)
@@ -815,6 +853,18 @@ class ConeAvoider:
         self.na_faixa = not na_outra
         return lado
 
+    def _carro_na_outra_faixa(self, lane):
+        """O carro esta, de fato, alem da pontilhada (na faixa que NAO e a da continua)?
+        Pela posicao dele em cm na pista (mesma conta do _off_base)."""
+        if lane is None or not lane.hw_px or lane.lane_center_x is None:
+            return False
+        s = getattr(lane, "sinal_continuo", 0.0)
+        if abs(s) < 0.5:
+            return False
+        lw = config.PISTA_LARGURA_CM
+        w_now = (lane.center_x - lane.lane_center_x) / lane.hw_px * (lw / 2.0)
+        return (w_now < -lw / 2.0 - config.CONE_NA_LINHA_CM) if s > 0 else (w_now > lw / 2.0 + config.CONE_NA_LINHA_CM)
+
     def _propor_lado(self, cone, lane):
         """-> (lado, medido). `medido` = veio de medida real da posicao do cone
         (estimar_w); senao e so o palpite padrao. So a GEOMETRIA (2 cameras
@@ -825,6 +875,10 @@ class ConeAvoider:
         pont = self._lado_da_pontilhada(lane)
         if pont is None:
             return (-1 if config.CONE_LADO_PADRAO == "direita" else 1), False
+        # o palpite padrao ("cruza a pontilhada") supoe o carro na faixa da CONTINUA. Se ele ja
+        # esta na outra faixa (depois de um desvio), cruzar a pontilhada e voltar pro outro lado.
+        if self._carro_na_outra_faixa(lane):
+            pont = -pont
         w, sig, fonte, medido = self.estimar_w(cone, lane)
         if w is None or not medido:
             return pont, False
