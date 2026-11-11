@@ -340,7 +340,7 @@ CONE_GATILHO_ALTURA = 0.20     # altura do cone na imagem que dispara a parada. 
 # A distancia de frenagem cai com o quadrado da velocidade e a camera de cone tem ~0.25 s de
 # atraso (15 fps + 2 quadros de confirmacao). No teste real ele parava com o cone colado (alt 0.9).
 # 0 desliga.
-CONE_VEL_APROXIMA = 0.22    # velocidade ao chegar no cone. Abaixo de ~0.22 o motor NAO sai do repouso
+CONE_VEL_APROXIMA = 0.25    # velocidade ao chegar no cone. Abaixo de ~0.22 o motor NAO sai do repouso
                             # (teste real: parado 6 s a 0.20) -> o ANTI_TRAVA abaixo da o empurrao.
 
 # ANTI-TRAVA: mandando velocidade baixa e a imagem da pista NAO mexe (carro nao saiu do lugar), da um
@@ -348,10 +348,13 @@ CONE_VEL_APROXIMA = 0.22    # velocidade ao chegar no cone. Abaixo de ~0.22 o mo
 # movimento o motor aguenta ~0.20). Sem isso, andar devagar = carro parado.
 ANTI_TRAVA_DIFF = 2.0       # 'chao' abaixo disso (mesma metrica do CONE_PARADO_DIFF) = nao esta andando
 ANTI_TRAVA_S = 0.5          # ... por esse tempo seguido
-ANTI_TRAVA_PULSO_S = 0.35   # duracao do pulso
-ANTI_TRAVA_VEL = 0.35       # velocidade do pulso
+ANTI_TRAVA_PULSO_S = 0.5    # duracao do pulso (0.35 s a 0.35 nao tirou o carro do lugar no teste de 11/11)
+ANTI_TRAVA_VEL = 0.50       # velocidade do pulso
 CONE_APROX_ALTURA = 0.10
-CONE_REDECIDE_AO_CONGELAR = False  # redecide o lado ao fim do ANALISAR. No simulador (16 voltas) NAO ajudou:
+CONE_SEGURA_POR_POSICAO = True     # com o cone fora da visao, o desvio segue a posicao ATUAL do carro (nao o valor antigo)
+CONE_PONT_SOZINHA_DECIDE = False  # so a pontilhada (sem a continua) NAO decide o lado. Simulador (16 voltas):
+                                  # lado certo 39/41 assim contra 36/41 deixando ela decidir
+CONE_REDECIDE_AO_CONGELAR = False # redecide o lado ao fim do ANALISAR. No simulador (16 voltas) NAO ajudou:
                                    # 43/52 lados certos ligado contra 45/51 desligado.
 CONE_VETO_FORA_ALTURA = 0.45  # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
@@ -414,8 +417,8 @@ CONE_FORA_PISTA_CM = 25.0        # cone alem da linha externa por mais que isso 
 CONE_SEQ_JANELA_S = 3.0         # cone que aparece ate esse tempo depois do desvio anterior = EM SEQUENCIA
 CONE_SEQ_PARADA_MIN_S = 0.1     # em sequencia: parada minima mais curta
 CONE_SEQ_ANALISE_S = 0.15       # em sequencia: igual a analise normal (antes 0.1)
-CONE_ARRANQUE_VEL = 0.35        # empurrao ao sair da parada (vence o atrito do repouso)
-CONE_ARRANQUE_S = 0.4           # duracao do empurrao
+CONE_ARRANQUE_VEL = 0.45        # empurrao ao sair da parada (vence o atrito do repouso)
+CONE_ARRANQUE_S = 0.5           # duracao do empurrao
 CONE_FAIXA_PERSISTE = False     # depois de desviar FICA na outra faixa; so troca quando um cone na faixa dela pedir
 CONE_PONT_TOL_CM = 14.0        # medida pela pontilhada que discorda da geometria por mais que isso e descartada
 CONE_TROCA_LADO_ALTURA_MAX = 0.25   # so troca de lado no meio da manobra se o

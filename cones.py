@@ -811,6 +811,10 @@ class ConeAvoider:
         w, sig, fonte, medido = self.estimar_w(cone, lane)
         if w is None or not medido:
             return pont, False
+        if fonte == "pontilhada" and not config.CONE_PONT_SOZINHA_DECIDE:
+            # so a pontilhada erra ~1 largura de faixa (simulador: lado certo em 0 de 4; no
+            # teste real deu -4 cm onde a continua deu -20): nao decide, espera a continua
+            return pont, False
         return self._escolher_lado(w, sig, 1.0 if pont > 0 else -1.0), True
 
     def _decidir_lado(self, cone, agora, e_pista, lane):
@@ -1018,6 +1022,22 @@ class ConeAvoider:
         metade = config.CAMERA_RES[0] / 2.0
         return off_cm / (lw / 2.0) * lane.hw_px / metade
 
+    def _off_para_alvo(self, lane):
+        """Deslocamento (unidades do erro) que leva o carro ao ULTIMO alvo (self.w_alvo_cm), pela
+        posicao dele AGORA. Igual ao final de _offset_posicao, sem precisar do cone. None se nao
+        da pra calcular (sem alvo, lado ou pista)."""
+        if (lane is None or not lane.hw_px or self.lado == 0 or self.w_alvo_cm is None
+                or lane.lane_center_x is None):
+            return None
+        lw = config.PISTA_LARGURA_CM
+        w_now = (lane.center_x - lane.lane_center_x) / lane.hw_px * (lw / 2.0)
+        if self.lado > 0:
+            off_cm = min(0.0, self.w_alvo_cm - w_now)
+        else:
+            off_cm = max(0.0, self.w_alvo_cm - w_now)
+        metade = config.CAMERA_RES[0] / 2.0
+        return off_cm / (lw / 2.0) * lane.hw_px / metade
+
     def _off_base(self, lane):
         """Deslocamento (unidades do erro) que mantem o carro no centro da
         OUTRA faixa depois que desviou pra la: o carro NAO volta sozinho pra
@@ -1049,7 +1069,15 @@ class ConeAvoider:
                    else config.CONE_SEGURAR_LONGE_S)
 
         if dt <= segurar:
-            return self._alvo               # segura: o carro ainda esta passando
+            # segura: o carro ainda esta passando o cone. Mantem o ALVO em cm, mas recalcula o
+            # deslocamento pela posicao ATUAL do carro (igual a quando o cone esta visivel). Segurar
+            # o valor antigo cancelava a correcao quando o carro ja chegou no alvo: no teste real o
+            # alvo era +1 cm, o desvio ficou em +0.48 e o carro passou da continua (erro -0.3 -> -2.0).
+            if config.CONE_SEGURA_POR_POSICAO:
+                novo = self._off_para_alvo(lane)
+                if novo is not None:
+                    self._alvo = novo
+            return self._alvo
 
         f = 1.0 - (dt - segurar) / config.CONE_DECAI_S
         if f <= 0.0:
