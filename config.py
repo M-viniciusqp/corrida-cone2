@@ -360,6 +360,21 @@ CONE_VETO_FORA_ALTURA = 0.45  # so ignora (nao para por) cone "fora da pista" se
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
 # Pecinha vermelha encostada na borda de baixo da camera do cone e menor que isso (altura/imagem) = o fio
 # do proprio carro, nao um cone. (teste real: virava 'cone a vista alt 0.08' e parava o carro)
+# MAPA DA PISTA (cones.py _casar_pista): posicao do cone ENTRE as duas continuas casando as linhas vistas
+# na base do cone com o padrao continua - pontilhada - continua. 0 desliga (volta ao estimador antigo).
+CONE_MAPA_ATIVO = True
+CONE_MAPA_TOL_LARGS = 0.35         # tolerancia (larguras de cone) pra casar uma linha vista com a prevista
+CONE_MAPA_PENAL_AUSENTE = 0.35     # linha prevista, dentro da imagem, que nao apareceu
+CONE_MAPA_BONUS_DENTRO = 0.25      # prior: o cone esta dentro da pista
+CONE_MAPA_SCORE_MIN = 0.8          # casamento minimo (pelo menos uma linha boa)
+CONE_MAPA_FOLGA_MIN = 0.45         # o melhor casamento tem que ganhar do 2o melhor por tanto
+CONE_MAPA_N_MIN = 2                # quadros distintos com medida do mapa pra usar
+CONE_SIGMA_MAPA_CM = 3.5           # incerteza da posicao pelo mapa
+# Borda externa: o CENTRO do carro nao passa de (meia largura do carro + isto) da continua da esquerda
+CONE_MARGEM_EXT_CM = CARRO_LARGURA_CM / 2.0 + 1.0
+# "Alem da continua" so vale com o cone pelo menos isto (larguras de cone) do lado da continua em relacao
+# ao eixo do carro: cone na frente do carro nao e "fora da pista" (teste real: foi ignorado com lat +0.3w)
+CONE_ALEM_CONT_LAT_MIN_W = 1.5
 CONE_BASE_FALSO_ALT = 0.15
 # Cone sem continua do lado de fora mas com uma continua a ate essa distancia (larguras de cone) do lado
 # de dentro = esta ALEM da continua (fora da pista): nao e obstaculo.
@@ -437,7 +452,7 @@ CONE_FAIXA_PERSISTE = False     # depois de desviar FICA na outra faixa; so troc
 CONE_PONT_TOL_CM = 14.0        # medida pela pontilhada que discorda da geometria por mais que isso e descartada
 CONE_TROCA_LADO_ALTURA_MAX = 0.25   # so troca de lado no meio da manobra se o
                                     # cone ainda esta mais longe que isso
-CONE_PARAR_X      = 0.60   # so conta se o cone esta nesse corredor central
+CONE_PARAR_X      = 0.85   # so conta se o cone esta nesse corredor central
 
 # Memoria: o cone some do campo de visao ANTES do carro terminar de passar
 # por ele. Sem segurar o desvio, o carro volta pro centro e raspa o cone.
