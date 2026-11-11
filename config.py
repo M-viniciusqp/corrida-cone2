@@ -27,7 +27,7 @@ STEER_INVERT = False
 # =====================================================================
 # 3. VELOCIDADE (0.0 a 1.0)
 # =====================================================================
-VELOCIDADE_BASE    = 0.25   # BAIXA de proposito pra validar o desvio de cones.
+VELOCIDADE_BASE    = 0.22  # BAIXA de proposito pra validar o desvio de cones.
                             # Suba de 0.05 em 0.05 (ate 1.00) conforme ficar
                             # estavel. NUNCA deixe abaixo de VELOCIDADE_MINIMA
                             # (0.25), senao o speed_for() inverte. O freio por
@@ -333,14 +333,14 @@ CONE_CRUZAR_FRAC = 0.8
 # (altura relativa ou base cortada) -> para o carro em vez de bater.
 # 0.0 desliga.
 CONE_PARA_E_ANALISA = True      # PARA quando ve o cone, espera parar, analisa e so entao desvia (manobra.py)
-CONE_GATILHO_ALTURA = 0.20     # altura do cone na imagem que dispara a parada. Cone de 25 cm:
+CONE_GATILHO_ALTURA = 0.17    # altura do cone na imagem que dispara a parada. Cone de 25 cm:
                                 # altura = 25*f/(dist*240), f~240px -> 0.21 ~ 120 cm, 0.25 ~ 100 cm, 0.28 ~ 90 cm, 0.50 ~ 50 cm.
                                 # AJUSTE pelo 'alt' do log: e a distancia da parada.
 # APROXIMACAO: com o cone a vista no caminho (alt >= CONE_APROX_ALTURA) o carro anda mais devagar.
 # A distancia de frenagem cai com o quadrado da velocidade e a camera de cone tem ~0.25 s de
 # atraso (15 fps + 2 quadros de confirmacao). No teste real ele parava com o cone colado (alt 0.9).
 # 0 desliga.
-CONE_VEL_APROXIMA = 0.25    # velocidade ao chegar no cone. Abaixo de ~0.22 o motor NAO sai do repouso
+CONE_VEL_APROXIMA = 0.22   # velocidade ao chegar no cone. Abaixo de ~0.22 o motor NAO sai do repouso
                             # (teste real: parado 6 s a 0.20) -> o ANTI_TRAVA abaixo da o empurrao.
 
 # ANTI-TRAVA: mandando velocidade baixa e a imagem da pista NAO mexe (carro nao saiu do lugar), da um
@@ -411,6 +411,14 @@ CONE_ANALISE_MAX_S       = 0.8
 # cortado pelas bordas da pista) e o cone, no PIOR caso (posicao +- sigma). Fica o lado com mais
 # folga; o lado da regra (cone na faixa -> cruza a pontilhada) ganha este bonus de desempate.
 CONE_LADO_BONUS_CM  = 3.0
+# Posicao do cone RELATIVA ao carro (camera do cone, direto): cone a esquerda do carro -> o natural
+# e passar pela direita do cone, e vice-versa. O lado natural ganha ate BONUS cm de folga virtual
+# (cheio com o cone a 10 cm ou mais do eixo), mas so se ele CABE (folga minima CLR_MIN).
+CONE_LADO_REL_BONUS_CM = 0.0   # DESLIGADO (nos cenarios testados nao mudou o lado). Ligar = 15.0
+CONE_LADO_REL_CLR_MIN_CM = 12.0
+# Cone a mais que (meia largura do carro + meia do cone + esta margem) do EIXO do carro nao esta
+# no caminho: nao desvia, mesmo que as linhas digam que esta na faixa. 0 desliga.
+CONE_LIVRE_MARGEM_CM = 0.0   # DESLIGADO: no simulador (16 voltas) ligado com 3.0 completou 9 voltas contra 12 (ignora cone que devia desviar). Em teste com margens maiores
 CONE_FOLGA_MIN_CM   = 3.0      # margem minima carro-cone; abaixo disso o log avisa "folga curta"
 CONE_DISCORDA_CM    = 12.0     # fontes boas discordando por mais que isso: sigma sobe (ambiguo)
 CONE_FORA_PISTA_CM = 25.0        # cone alem da linha externa por mais que isso = fora da pista: nao para

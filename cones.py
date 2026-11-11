@@ -652,6 +652,14 @@ class ConeAvoider:
         # regra simples: lado do cone no eixo do carro (a continua a direita:
         # cone muito a esquerda = outra faixa)
         d = cone.lat * cw                    # cm do eixo do carro, + = direita
+        # cone FORA da largura do carro (com folga), medido direto pela camera: nao esta no
+        # caminho, seja qual for a faixa que as linhas digam. Nao desvia (desviar de um cone
+        # que ja ficou do lado era o que jogava o carro pra fora da rota).
+        livre = config.CARRO_LARGURA_CM / 2.0 + cw / 2.0 + config.CONE_LIVRE_MARGEM_CM
+        if config.CONE_LIVRE_MARGEM_CM > 0 and abs(d) >= livre:
+            self.classif = ("cone %+.0fcm do eixo do carro (>= %.0fcm): FORA do caminho, nao desvia"
+                            % (d, livre))
+            return False, self.classif
         lado_cont = 1 if s > 0 else -1
         lat_outra = (d * lado_cont) <= -config.CONE_LAT_OUTRA_CM
         lat_txt = "lat %+.0fcm=%s" % (d, "OUTRA" if lat_outra else "minha")
@@ -765,7 +773,7 @@ class ConeAvoider:
             return -1
         return None
 
-    def _escolher_lado(self, w, sig, s):
+    def _escolher_lado(self, w, sig, s, lat_cm=None):
         """Lado do desvio (+1 pela ESQUERDA / -1 pela DIREITA) pela FOLGA FISICA.
 
         Pra cada lado: onde o carro ficaria (alvo = cone -/+ folga nominal, JA
@@ -791,6 +799,15 @@ class ConeAvoider:
         na_outra = dentro < -lw / 2.0 - config.CONE_NA_LINHA_CM
         pref = -cruza if na_outra else cruza
         sc = {l: clr(l) + (config.CONE_LADO_BONUS_CM if l == pref else 0.0) for l in (1, -1)}
+        # POSICAO RELATIVA cone x carro (medida direto pela camera do cone, sem depender das
+        # linhas): cone a ESQUERDA do carro -> o natural e passar pela DIREITA do cone (o carro
+        # ja esta la; virar pra esquerda seria cruzar na frente do cone) e vice-versa. Antes a
+        # escolha so olhava a posicao do cone na faixa e podia mandar o carro DE ENCONTRO ao cone.
+        # So ajuda o lado natural se ele CABE (folga minima); senao nao empurra pra lado inviavel.
+        if lat_cm is not None and config.CONE_LADO_REL_BONUS_CM > 0:
+            natural = -1 if lat_cm < 0 else 1       # cone a esquerda (lat<0) -> passa pela direita
+            if clr(natural) >= config.CONE_LADO_REL_CLR_MIN_CM:
+                sc[natural] += config.CONE_LADO_REL_BONUS_CM * min(1.0, abs(lat_cm) / 10.0)
         lado = 1 if sc[1] > sc[-1] else (-1 if sc[-1] > sc[1] else pref)
         # folga de borda a borda (carro e cone tem largura)
         self.folga_cm = (clr(lado) - config.CARRO_LARGURA_CM / 2.0
@@ -815,7 +832,8 @@ class ConeAvoider:
             # so a pontilhada erra ~1 largura de faixa (simulador: lado certo em 0 de 4; no
             # teste real deu -4 cm onde a continua deu -20): nao decide, espera a continua
             return pont, False
-        return self._escolher_lado(w, sig, 1.0 if pont > 0 else -1.0), True
+        return self._escolher_lado(w, sig, 1.0 if pont > 0 else -1.0,
+                                   lat_cm=cone.lat * config.CONE_LARGURA_CM), True
 
     def _decidir_lado(self, cone, agora, e_pista, lane):
         """Mantem o lado ESTAVEL enquanto for o mesmo cone.
