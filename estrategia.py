@@ -69,6 +69,7 @@ class Plano:
         self._t_visto = None
         self._t_ant = None
         self._id_cone = 0
+        self._w_aprox = (None, "-")         # posicao do cone medida na aproximacao (antes de parar)
         self._id_desvio = -1                # numero do cone que motivou a troca de faixa
         self._alt_max = 0.0
         self.info = InfoDesvio()
@@ -83,6 +84,7 @@ class Plano:
         self.t_estado = agora
         self.calmo = 0
         self.vistos = 0
+        self.esperando_perto = False
 
     def _limpa_cone(self):
         self._id_cone += 1                  # cada cone novo ganha um numero
@@ -251,7 +253,9 @@ class Plano:
             self.calmo = self.calmo + 1 if self._parado_agora() else 0
             if ((dt >= config.CONE_PARADA_MIN_S and self.calmo >= config.CONE_PARADA_CALMO_N)
                     or dt >= config.CONE_PARADA_MAX_S):
-                # carro parado: mede do zero (a aproximacao era com o carro andando)
+                # carro parado: mede do zero (a aproximacao era com o carro andando). Guarda a
+                # estimativa da aproximacao pro caso de o cone sumir (colado) na analise.
+                self._w_aprox = self.estimativa(cone if visto else None, w_carro)
                 self._wm, self._wc = [], []
                 self._muda(ANALISAR, agora)
                 eventos.append("[estrada] parou em %.2fs -> ANALISANDO o cone" % (agora - self.t_ref))
@@ -264,14 +268,24 @@ class Plano:
                       or dt >= config.CONE_ANALISE_MAX_S)
             if not pronto:
                 return self.estado
-            if not visto and dt < config.CONE_PERDIDO_PERTO_MAX_S and self._alt_ult >= config.CONE_PERDIDO_PERTO_ALT:
-                return self.estado          # sumiu colado (abaixo da camera): espera
-            w_est, fonte = self.estimativa(cone if visto else None, w_carro)
-            info.w_cone_cm, info.fonte_w = w_est, fonte
-            if not visto and w_est is None:
-                self._muda(SEGUIR, agora)
-                eventos.append("[estrada] perdeu o cone parado -> segue")
+            colado = self._alt_ult >= config.CONE_PERDIDO_PERTO_ALT
+            if not visto and colado and dt < config.ESTRADA_SUMIU_ESPERA_S:
+                # sumiu colado (abaixo da camera): espera POUCO pra ele reaparecer
+                if not self.esperando_perto:
+                    self.esperando_perto = True
+                    eventos.append("[estrada] cone sumiu colado (alt %.2f) -> espero ate %.1fs" % (
+                        self._alt_ult, config.ESTRADA_SUMIU_ESPERA_S))
                 return self.estado
+            w_est, fonte = self.estimativa(cone if visto else None, w_carro)
+            if w_est is None and self._w_aprox[0] is not None:
+                w_est, fonte = self._w_aprox[0], self._w_aprox[1] + "/antes de parar"
+            info.w_cone_cm, info.fonte_w = w_est, fonte
+            if not visto and w_est is None and not colado:
+                self._muda(SEGUIR, agora)
+                eventos.append("[estrada] perdeu o cone (estava longe) -> segue")
+                return self.estado
+            # sumiu COLADO e sem posicao: ele esta na frente, embaixo da camera. Seguir reto = bater:
+            # cai abaixo no "sem medida" e troca de faixa.
             sob = None if w_est is None else self._corredor(w_est, w_carro)
             if sob is not None and sob <= 0:
                 self.ignorando = True

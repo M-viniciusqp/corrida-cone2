@@ -404,6 +404,8 @@ ESTRADA_I_LIMITE = 0.25             # o termo integral nunca passa disso de este
 FICA_NA_FAIXA_BONUS_CM = 3.0        # desempate: so troca de faixa se ganhar mais que isso de folga
 ESTRADA_K_LAT = 0.8                 # esterco por erro de POSICAO perto do carro (por meia faixa de erro). Simulador: erro de seguimento 6.8 -> 1.3 cm
 ESTRADA_KD_LAT = 0.6                # amortecimento pela velocidade lateral (meias faixas por segundo)
+ESTRADA_SUMIU_ESPERA_S = 1.5        # cone sumiu colado na analise: espera so isso (antes 6 s) e depois
+                                    # trata como obstaculo na frente (troca de faixa), em vez de seguir reto
 CONE_NOVO_S = 0.6                   # cone sumido por mais que isso = o proximo e outro cone
 
 # ---- DESVIO POR FAIXA (estrategia nova) ----
