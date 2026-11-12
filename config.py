@@ -375,39 +375,6 @@ CONE_MARGEM_EXT_CM = CARRO_LARGURA_CM / 2.0 + 1.0
 # "Alem da continua" so vale com o cone pelo menos isto (larguras de cone) do lado da continua em relacao
 # ao eixo do carro: cone na frente do carro nao e "fora da pista" (teste real: foi ignorado com lat +0.3w)
 CONE_ALEM_CONT_LAT_MIN_W = 1.5
-# =====================================================================
-# ESTRATEGIA "ESTRADA" (estrada.py + estrategia.py) -- a principal desde 2026-11-11
-# O carro sabe onde esta em cm ENTRE AS DUAS CONTINUAS (acompanha a PONTILHADA na camera da pista),
-# o cone e localizado no mesmo mapa, e desviar = TROCAR DE FAIXA e ficar na faixa nova.
-# 0 = volta pra estrategia antiga (cones.ConeAvoider + manobra.py).
-# =====================================================================
-ESTRATEGIA_ESTRADA = 1
-ESTRADA_FAIXA_INICIAL = "direita"   # faixa em que o carro e colocado na largada
-ESTRADA_LINHAS = 18                 # fileiras varridas na camera da pista
-ESTRADA_TOL = 0.35                  # trecho branco conta como linha se estiver a menos disso (x meia faixa)
-ESTRADA_MIN_PTS = 5                 # amostras minimas pra confiar na reta da pontilhada
-ESTRADA_SUAVIZA = 0.7               # quanto da reta anterior fica (anti-pulo). Subiu de 0.5: menos tremida
-ESTRADA_MAX_PERDIDO = 15            # quadros sem a estrada antes de reiniciar o rastreio
-ESTRADA_MAX_PERDIDO_ANDA = 20       # quadros andando devagar sem a estrada antes de parar
-ESTRADA_PRES_CONT = 0.90            # linha sem buracos (continua)...
-ESTRADA_PRES_PONT_MIN = 0.12        # ...e a vizinha com buracos (pontilhada) entre esses valores
-ESTRADA_PRES_PONT_MAX = 0.70        #    -> a pontilhada estava com o rotulo trocado
-ESTRADA_QUADROS_TROCA = 20          # quadros seguidos com essa suspeita antes de corrigir
-ESTRADA_MARGEM_BORDA_CM = 1.0       # o carro inteiro fica pelo menos isso pra dentro das continuas
-CORREDOR_MARGEM_CM = 2.0            # o corredor do carro e a largura dele + isto de cada lado
-IGNORA_FOLGA_CM = 3.0               # andando, so ignora (sem parar) cone fora do corredor por pelo menos isso
-TROCA_RAMPA_CM_S = 35.0             # velocidade com que o alvo anda de uma faixa pra outra (cm/s)
-TROCA_CHEGOU_CM = 4.0               # troca de faixa termina com o carro a menos disso do centro da faixa nova
-TROCA_MAX_S = 4.0                   # tempo maximo de uma troca de faixa
-ESTRADA_KI = 0.0                    # integral do erro (so na estrategia nova). No simulador 0.25 oscilou e 0.08 bateu mais: desligado
-ESTRADA_I_LIMITE = 0.25             # o termo integral nunca passa disso de esterco
-FICA_NA_FAIXA_BONUS_CM = 3.0        # desempate: so troca de faixa se ganhar mais que isso de folga
-ESTRADA_K_LAT = 0.0                 # DESLIGADO: no carro real fez o servo oscilar (ruido da posicao). 0 = controle igual a v1
-ESTRADA_KD_LAT = 0.0                # DESLIGADO (amplificava o ruido da posicao no servo)
-ESTRADA_SUMIU_ESPERA_S = 1.5        # cone sumiu colado na analise: espera so isso (antes 6 s) e depois
-                                    # trata como obstaculo na frente (troca de faixa), em vez de seguir reto
-CONE_NOVO_S = 0.6                   # cone sumido por mais que isso = o proximo e outro cone
-
 # ---- DESVIO POR FAIXA (estrategia nova) ----
 # A pista sao duas faixas entre duas continuas; o carro anda perto da pontilhada. O cone esta numa faixa
 # (o lado da pontilhada em que ele cai) e o carro passa pela OUTRA, no minimo no centro dela.
@@ -418,8 +385,6 @@ CONE_NA_PISTA_MARGEM_CM = 2.0      # cone ate (meia largura dele + isto) alem da
 CONE_CHAO_MIN_PCT = 0.30           # a base do cone tem que estar abaixo disso (fracao da altura): acima e
                                    # fundo da sala (cadeira, mochila). Suba se a camera for inclinada pra baixo.
 CONE_AFINA_MAX = 0.85              # largura do terco de cima / terco de baixo: cone afina (~0.3-0.6). 0 desliga
-CONE_ESCOLHA_X_MAX = 0.80           # cone com |x| maior que isso (borda da imagem = ao lado do carro) so e
-                                   # escolhido se nao houver outro mais pro meio
 CONE_TROCA_BASE_PCT = 0.06         # so troca o cone seguido por outro se este estiver mais perto por isso
 CONE_BASE_FALSO_ALT = 0.15
 # Cone sem continua do lado de fora mas com uma continua a ate essa distancia (larguras de cone) do lado
@@ -446,7 +411,8 @@ FREIO_ATIVO = True
 # ele esta colado na frente, abaixo do campo da camera. Antes o carro entendia 'sem cone' e seguia
 # em frente DIRETO pra cima dele (log real: altura 0.26 -> 0.75 e depois 'cone -').
 CONE_PERDIDO_PERTO_ALT = 0.45
-CONE_PERDIDO_PERTO_MAX_S = 6.0  # fica parado ate isso esperando; depois segue (nao trava pra sempre)
+CONE_PERDIDO_PERTO_MAX_S = 2.0  # fica parado ate isso esperando (antes 6 s: o carro ficava muito tempo parado)
+CONE_DESVIO_MIN_S = 1.0         # o desvio dura pelo menos isso (nao 'termina' antes de comecar)
 CONE_ANALISE_S = 0.15           # tempo medindo o cone com o carro parado
 CONE_REARME_S = 0.5             # durante o desvio: cone sumiu por isso = ja passou; um novo pode parar
 CONE_COOLDOWN_S = 0.4           # depois de um desvio, tempo sem parar de novo

@@ -173,12 +173,6 @@ def _imprime_resumo(piloto, cone_cam, fps, frames, t_cam, t_vis, t_mot):
         lado_t = {-1: "passa pela DIREITA", 1: "passa pela ESQUERDA", 0: "-"}[desvio.lado]
         print(f"  cone    -> {cinfo} | estado {piloto.manobra.estado} | "
               f"desvio {desvio.offset:+.2f} | {lado_t}")
-    est = getattr(piloto, "estrada", None)
-    if est is not None:
-        wc = "?" if est.w_carro is None else f"{est.w_carro:+.0f}cm"
-        print(f"  estrada -> {'OK' if est.ok else 'PERDIDA'} | carro em w {wc} "
-              f"(0 = centro da faixa direita, -{config.PISTA_LARGURA_CM:.0f} = esquerda) | "
-              f"alvo {piloto.manobra.w_alvo:+.0f}cm | pontos {est.n_pts}")
     print(f"  gargalo -> camera {1000*t_cam/frames:.0f}ms  "
           f"visao+decisao {1000*t_vis/frames:.0f}ms  motor {1000*t_mot/frames:.0f}ms  "
           f"(por frame)")

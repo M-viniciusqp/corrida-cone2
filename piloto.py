@@ -25,26 +25,15 @@ from vision import LaneVision
 from controller import SteeringPID, speed_for
 from cones import ConeVision, ConeAvoider
 from manobra import Manobra, SEGUIR, FREAR, ANALISAR, DESVIAR
-from estrada import Estrada
-from estrategia import Plano
 
 
 class Piloto:
     def __init__(self):
         self.vision = LaneVision()
         self.cones = ConeVision()
+        self.desvio = ConeAvoider()
+        self.manobra = Manobra()
         self.pid = SteeringPID()
-        # ESTRATEGIA_ESTRADA: posicao do carro e do cone num mapa so (cm entre as duas
-        # continuas) e desvio = trocar de faixa (estrada.py + estrategia.py). 0 = a antiga.
-        self.modo_estrada = bool(getattr(config, "ESTRATEGIA_ESTRADA", 0))
-        if self.modo_estrada:
-            self.estrada = Estrada()
-            self.manobra = Plano()          # mesma "cara" da Manobra (estado, parado, ultimo...)
-            self.desvio = self.manobra.info
-        else:
-            self.estrada = None
-            self.desvio = ConeAvoider()
-            self.manobra = Manobra()
 
         self.res = None             # ultimo LaneResult
         self.cone = None            # ultimo ConeResult (so reprocessa quadro novo)
@@ -66,11 +55,6 @@ class Piloto:
         self._mov_pista = None      # ultima medida de movimento do chao (anti-trava)
         self._t_trava = None        # desde quando manda andar e o chao nao mexe
         self._pulso_ate = 0.0       # ate quando dura o pulso anti-trava
-        self._perdido_n = 0         # quadros sem a estrada (estrategia nova)
-        self._int_e = 0.0           # integral do erro (estrategia nova)
-        self._w_ant = None          # posicao lateral anterior (amortecimento)
-        self._v_lat = 0.0
-        self._t_int = None
 
     # ------------------------------------------------------------------
     def step(self, agora, frame_pista, frame_cone=None, cone_novo=False,
@@ -81,8 +65,6 @@ class Piloto:
         fps: FPS medido do laco (freio de seguranca)."""
         self.eventos = []
         self.mudou_estado = None
-        if self.modo_estrada:
-            return self._step_estrada(agora, frame_pista, frame_cone, cone_novo, fps, debug_cone)
         desvio, manobra, pid = self.desvio, self.manobra, self.pid
 
         # durante o desvio o carro cruza a pontilhada: nao deixa a visao
@@ -248,125 +230,6 @@ class Piloto:
             turn, speed = 0.0, 0.0
             pid.reset()
             desvio.reset()
-        return turn, speed
-
-    # ==================================================================
-    # ESTRATEGIA NOVA: mapa da estrada + troca de faixa
-    # ==================================================================
-    def _mov_chao(self, frame_pista):
-        """Quanto a imagem da pista mudou (sem o brilho medio): ~0 com o carro parado."""
-        peq = cv2.cvtColor(cv2.resize(frame_pista, (64, 36), interpolation=cv2.INTER_AREA),
-                           cv2.COLOR_BGR2GRAY).astype(np.float32)
-        peq -= float(peq.mean())
-        mov = float(np.abs(peq - self._peq_ant).mean()) if self._peq_ant is not None else None
-        self._peq_ant = peq
-        self._mov_pista = mov
-        return mov
-
-    def _step_estrada(self, agora, frame_pista, frame_cone, cone_novo, fps, debug_cone):
-        plano, est, pid, vision = self.manobra, self.estrada, self.pid, self.vision
-        vision.congelar_lado = False
-        vision.medir_cone = False
-        vision.lookahead_pct = config.LOOKAHEAD_PCT
-        res = vision.process(frame_pista, debug=self.debug_pista)
-        self.res = res
-        mov = self._mov_chao(frame_pista)
-
-        ok = est.update(vision)
-        if est.evento:
-            self.eventos.append("[estrada] " + est.evento)
-        L = config.PISTA_LARGURA_CM
-        w_carro = est.w_carro if ok else None
-
-        # camera de cone: a continua procurada e a do lado do carro (depende da faixa em que ele esta)
-        if frame_cone is None:
-            self.cone = None
-        elif cone_novo:
-            na_esq = est.w_carro is not None and est.w_carro < -L / 2.0
-            self.cone = self.cones.process(frame_cone, debug=debug_cone,
-                                           lado_solida=(-1 if na_esq else 1))
-        cone = self.cone
-        self._cone_novo = bool(cone_novo and frame_cone is not None)
-
-        antes = plano.estado
-        estado = plano.update(agora, cone, self._cone_novo, mov, w_carro, self.eventos)
-        if estado != antes:
-            self.mudou_estado = estado
-            if antes in (FREAR, ANALISAR) and estado not in (FREAR, ANALISAR):
-                pid.marcar_retomada()
-                pid.reset()
-        self._estado_ant = estado
-        if (estado == SEGUIR and cone is not None and cone.found
-                and cone.altura >= config.CONE_APROX_ALTURA and agora - self._t_log_aprox >= 0.4):
-            self._t_log_aprox = agora
-            w_t = ("?" if self.desvio.w_cone_cm is None
-                   else "%+.0fcm [%s]" % (self.desvio.w_cone_cm, self.desvio.fonte_w))
-            self.eventos.append("[cone] aproximando: alt %.2f x %+.2f | cone w %s | carro w %s | %s" % (
-                cone.altura, cone.cx, w_t, "?" if w_carro is None else "%+.0f" % w_carro,
-                plano.motivo_sem_gatilho(cone, agora)))
-
-        # ---- controle
-        turn, speed = self.turn, self.speed
-        if plano.parado:
-            turn, speed = 0.0, 0.0
-            self._perdido_n = 0
-            self._int_e, self._t_int = 0.0, None     # parado: integral nao acumula
-            self._w_ant, self._v_lat = None, 0.0
-        elif ok:
-            if not self._confiavel_ant:
-                pid.marcar_retomada()
-            self._confiavel_ant = True
-            self._perdido_n = 0
-            erro, hd, _ = est.erro_para(vision, plano.w_alvo, config.LOOKAHEAD_PCT)
-            turn = pid.update(erro, hd)
-            # INTEGRAL so aqui: em curva longa o carro precisa de um esterco constante e, so com o
-            # P, sobrava ~13 cm de erro fixo (no simulador: alvo -23 cm, carro parado em -9 cm).
-            # Agora o alvo e um centimetro exato da estrada, entao esse erro importa.
-            dt_i = 1.0 / 30.0 if self._t_int is None else max(0.0, min(0.2, agora - self._t_int))
-            self._t_int = agora
-            if abs(erro) > config.DEAD_ZONE:
-                self._int_e += erro * dt_i
-            lim = config.ESTRADA_I_LIMITE / max(1e-6, config.ESTRADA_KI)
-            self._int_e = max(-lim, min(lim, self._int_e))
-            turn = turn + config.ESTRADA_KI * self._int_e
-            # POSICAO LATERAL perto do carro (cm, direto da estrada) + amortecimento pela velocidade
-            # lateral. O ponto de mira la na frente mistura posicao com angulo e, em curva, o carro
-            # ficava ~9 cm fora do alvo (no simulador foi o que fez raspar num cone).
-            meia = config.PISTA_LARGURA_CM / 2.0
-            e_lat = (plano.w_alvo - w_carro) / meia
-            v_lat = 0.0
-            if self._w_ant is not None and dt_i > 0:
-                v_lat = (w_carro - self._w_ant) / dt_i / meia
-            self._v_lat = 0.6 * self._v_lat + 0.4 * v_lat
-            self._w_ant = w_carro
-            turn += config.ESTRADA_K_LAT * e_lat - config.ESTRADA_KD_LAT * self._v_lat
-            turn = max(-1.0, min(1.0, turn))
-            speed = speed_for(turn, res.curvature)
-            if (config.CONE_VEL_APROXIMA and estado == SEGUIR and not plano.ignorando
-                    and cone is not None and cone.found and cone.altura >= config.CONE_APROX_ALTURA
-                    and abs(cone.cx) < config.CONE_PARAR_X):
-                speed = min(speed, config.CONE_VEL_APROXIMA)
-            if estado == DESVIAR and agora - plano.t_estado < config.CONE_ARRANQUE_S:
-                speed = max(speed, config.CONE_ARRANQUE_VEL)
-            if fps < config.FPS_MINIMO_SEGURO:
-                speed *= max(0.35, fps / config.FPS_MINIMO_SEGURO)
-            speed = self._anti_trava(agora, speed)
-            if estado == DESVIAR and agora - self._t_log_desvio >= 0.15:
-                self._t_log_desvio = agora
-                self.eventos.append("[troca] carro w %+.0f -> alvo %+.0f (destino faixa %s) | erro %+.2f "
-                                    "turn %+.2f vel %.2f" % (w_carro, plano.w_alvo, plano._nome_faixa(),
-                                                             erro, turn, speed))
-        else:
-            # perdeu a estrada: devagar, endireitando; muito tempo perdido -> para
-            self._confiavel_ant = False
-            self._perdido_n = getattr(self, "_perdido_n", 0) + 1
-            if self._perdido_n <= config.ESTRADA_MAX_PERDIDO_ANDA:
-                turn *= 0.85
-                speed = config.VELOCIDADE_PERDIDO
-            else:
-                turn, speed = 0.0, 0.0
-                pid.reset()
-        self.turn, self.speed = turn, speed
         return turn, speed
 
     def _anti_trava(self, agora, speed):
