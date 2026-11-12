@@ -386,7 +386,7 @@ ESTRADA_FAIXA_INICIAL = "direita"   # faixa em que o carro e colocado na largada
 ESTRADA_LINHAS = 18                 # fileiras varridas na camera da pista
 ESTRADA_TOL = 0.35                  # trecho branco conta como linha se estiver a menos disso (x meia faixa)
 ESTRADA_MIN_PTS = 5                 # amostras minimas pra confiar na reta da pontilhada
-ESTRADA_SUAVIZA = 0.5               # quanto da reta anterior fica (anti-pulo)
+ESTRADA_SUAVIZA = 0.7               # quanto da reta anterior fica (anti-pulo). Subiu de 0.5: menos tremida
 ESTRADA_MAX_PERDIDO = 15            # quadros sem a estrada antes de reiniciar o rastreio
 ESTRADA_MAX_PERDIDO_ANDA = 20       # quadros andando devagar sem a estrada antes de parar
 ESTRADA_PRES_CONT = 0.90            # linha sem buracos (continua)...
@@ -402,8 +402,8 @@ TROCA_MAX_S = 4.0                   # tempo maximo de uma troca de faixa
 ESTRADA_KI = 0.0                    # integral do erro (so na estrategia nova). No simulador 0.25 oscilou e 0.08 bateu mais: desligado
 ESTRADA_I_LIMITE = 0.25             # o termo integral nunca passa disso de esterco
 FICA_NA_FAIXA_BONUS_CM = 3.0        # desempate: so troca de faixa se ganhar mais que isso de folga
-ESTRADA_K_LAT = 0.8                 # esterco por erro de POSICAO perto do carro (por meia faixa de erro). Simulador: erro de seguimento 6.8 -> 1.3 cm
-ESTRADA_KD_LAT = 0.6                # amortecimento pela velocidade lateral (meias faixas por segundo)
+ESTRADA_K_LAT = 0.0                 # DESLIGADO: no carro real fez o servo oscilar (ruido da posicao). 0 = controle igual a v1
+ESTRADA_KD_LAT = 0.0                # DESLIGADO (amplificava o ruido da posicao no servo)
 ESTRADA_SUMIU_ESPERA_S = 1.5        # cone sumiu colado na analise: espera so isso (antes 6 s) e depois
                                     # trata como obstaculo na frente (troca de faixa), em vez de seguir reto
 CONE_NOVO_S = 0.6                   # cone sumido por mais que isso = o proximo e outro cone
