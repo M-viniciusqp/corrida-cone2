@@ -346,7 +346,7 @@ CONE_CRUZAR_FRAC = 0.8
 # (altura relativa ou base cortada) -> para o carro em vez de bater.
 # 0.0 desliga.
 CONE_PARA_E_ANALISA = True      # PARA quando ve o cone, espera parar, analisa e so entao desvia (manobra.py)
-CONE_GATILHO_ALTURA = 0.23    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). 0.25 parava colado, 0.20 longe demais
+CONE_GATILHO_ALTURA = 0.24    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). 0.25 colado, 0.23 ainda um pouco longe
                                 # altura = 25*f/(dist*240), f~240px -> 0.21 ~ 120 cm, 0.25 ~ 100 cm, 0.28 ~ 90 cm, 0.50 ~ 50 cm.
                                 # AJUSTE pelo 'alt' do log: e a distancia da parada.
 # APROXIMACAO: com o cone a vista no caminho (alt >= CONE_APROX_ALTURA) o carro anda mais devagar.
@@ -443,7 +443,7 @@ CONE_PASSADO_S = 4.0
 CONE_COOLDOWN_S = 0.4           # depois de um desvio, tempo sem parar de novo
 CONE_OFFSET_SLEW_DESVIO = 3.0     # velocidade do desvio saindo da parada (erro/s); 0.8 = suave
 CONE_DESVIO_MAX_S = 9.0         # seguranca: desvio nao dura mais que isso
-CONE_GANHO_TURN_DESVIO = 1.0     # multiplica a direcao SO enquanto desvia (1.0 = igual; 1.5-2.0 = mais brusco)
+CONE_GANHO_TURN_DESVIO = 1.5     # multiplica a direcao SO enquanto desvia. Era 1.0: o servo usava so ~62% do curso pra esquerda no desvio
 DEBUG_CADA = 4                  # --ver: mostra as janelas a cada N quadros (menos custo de FPS)
 CONE_SO_MINHA_FAIXA = True      # so reage a cone na FAIXA DO CARRO (ou na pontilhada); cone da outra faixa e ignorado
 CONE_LAT_OUTRA_CM = 14.0        # regra simples: cone a mais que isso do lado oposto da continua (no eixo do carro) = outra faixa
