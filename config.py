@@ -34,7 +34,7 @@ VELOCIDADE_BASE    = 0.42  # BAIXA de proposito pra validar o desvio de cones.
                             # FPS baixo e o de curva fechada continuam ativos.
 VELOCIDADE_MINIMA  = 0.42   # subiu de 0.35 -- piso normal de curva
 VELOCIDADE_PERDIDO = 0.20   # perdeu a pista, andando devagar procurando
-VELOCIDADE_DESVIO  = 0.30   # desviando do cone e voltando pra faixa da direita: mais devagar (pedido 2026-11-13).
+VELOCIDADE_DESVIO  = 0.25   # desviando do cone e voltando pra faixa da direita: mais devagar (pedido 2026-11-13).
                             # De volta na faixa da direita, volta pra VELOCIDADE_BASE. A arrancada do desvio
                             # (CONE_ARRANQUE_VEL por CONE_ARRANQUE_S) continua igual. 0 = desliga
 
