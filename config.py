@@ -39,7 +39,7 @@ VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.25   # mais lento (pedido 2026-11-13: era 0.5, depois 0.35)
+VELOCIDADE_FATOR = 0.22   # mais lento (pedido 2026-11-13: 0.5 -> 0.35 -> 0.25 -> 0.22)
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
@@ -479,6 +479,13 @@ CONE_PARAR_X      = 0.97   # so conta se o cone esta nesse corredor central. Era
 
 # Memoria: o cone some do campo de visao ANTES do carro terminar de passar
 # por ele. Sem segurar o desvio, o carro volta pro centro e raspa o cone.
+# VOLTA PRA FAIXA DA DIREITA depois do desvio: a visao da faixa so 'lembrava' que a faixa certa e a da
+# direita por FAIXA_OPOSTA_JANELA quadros (~3 s). Com o carro mais devagar a volta demora mais que isso e o
+# carro ficava na faixa da esquerda. Agora a memoria dura ate o carro estar de volta (ou VOLTA_MAX_S).
+CONE_VOLTA_OK_ERRO = 0.30       # erro da pista abaixo disso = de volta na faixa da direita...
+CONE_VOLTA_OK_QUADROS = 15      # ...por esses quadros seguidos
+CONE_VOLTA_MAX_S = 20.0         # limite de seguranca da memoria
+CONE_DESVIO_MIN_S = 1.0         # o desvio dura pelo menos isso (no log ele 'terminava' no mesmo instante)
 CONE_SEGURAR_S       = 1.60   # cone estava perto: mantem o desvio por esse tempo
                               # (tem que cobrir o carro INTEIRO passando)
 CONE_SEGURAR_LONGE_S = 0.15   # cone estava longe: so tolera falha de deteccao

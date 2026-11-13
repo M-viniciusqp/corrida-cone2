@@ -258,7 +258,9 @@ class Manobra:
                 self._muda(FREAR, agora)
                 self.vistos = 0
                 return self.estado
-        fim = (not desvio.ativo and abs(desvio.offset - desvio.off_base) < 0.05)
+        # tempo minimo: no log real o desvio 'terminava' no mesmo instante em que comecava
+        fim = (not desvio.ativo and abs(desvio.offset - desvio.off_base) < 0.05
+               and agora - self.t_estado >= config.CONE_DESVIO_MIN_S)
         if fim or agora - self.t_estado > config.CONE_DESVIO_MAX_S:
             self.t_ultimo_gatilho = agora
             desvio.liberado = False

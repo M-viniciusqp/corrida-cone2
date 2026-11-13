@@ -55,6 +55,9 @@ class Piloto:
         self._mov_pista = None      # ultima medida de movimento do chao (anti-trava)
         self._t_trava = None        # desde quando manda andar e o chao nao mexe
         self._pulso_ate = 0.0       # ate quando dura o pulso anti-trava
+        self._voltando = False      # desvio acabou e o carro ainda esta voltando pra faixa da direita
+        self._t_volta = 0.0
+        self._volta_ok = 0
 
     # ------------------------------------------------------------------
     def step(self, agora, frame_pista, frame_cone=None, cone_novo=False,
@@ -69,7 +72,9 @@ class Piloto:
 
         # durante o desvio o carro cruza a pontilhada: nao deixa a visao
         # "aprender" qual lado e a continua com a imagem desse momento
-        self.vision.congelar_lado = desvio.ativo or desvio.faixa_outra
+        # + _voltando: depois do desvio, mantem a memoria de "a faixa certa e a da DIREITA" ate o
+        # carro estar de volta nela (antes durava ~3 s e, com o carro devagar, ele ficava na esquerda)
+        self.vision.congelar_lado = desvio.ativo or desvio.faixa_outra or self._voltando
         # mira mais perto durante o desvio (rampa, sem degrau no erro)
         alvo_la = (config.LOOKAHEAD_DESVIO_PCT if manobra.estado == DESVIAR
                    else config.LOOKAHEAD_PCT)
@@ -105,6 +110,7 @@ class Piloto:
 
         self._cone_novo = bool(cone_novo and frame_cone is not None)
         self._manobra(agora, cone, cone_novo, mov_pista, res)
+        self._confere_volta(agora, res)
         turn, speed = self._controle(agora, res, cone, fps)
         self.turn, self.speed = turn, speed
         return turn, speed
@@ -139,7 +145,8 @@ class Piloto:
             elif estado == SEGUIR and self._estado_ant in (FREAR, ANALISAR):
                 ev.append("[manobra] parada cancelada -> segue (%s)" % (manobra.ultimo or "perdeu o cone"))
             elif estado == SEGUIR:
-                ev.append("[manobra] desvio terminado -> seguindo a faixa")
+                ev.append("[manobra] desvio terminado -> voltando pra faixa da DIREITA")
+                self._voltando, self._t_volta, self._volta_ok = True, agora, 0
             if self._estado_ant in (FREAR, ANALISAR) and estado not in (FREAR, ANALISAR):
                 self.pid.marcar_retomada()      # saindo da parada: sem chute do D
                 self.pid.reset()
@@ -234,6 +241,24 @@ class Piloto:
             pid.reset()
             desvio.reset()
         return turn, speed
+
+    def _confere_volta(self, agora, res):
+        """Fim da volta pra faixa da direita: erro da pista pequeno por varios quadros seguidos."""
+        if not self._voltando:
+            return
+        if self.manobra.estado != SEGUIR:
+            self._voltando = False          # outro cone: a manobra cuida
+            return
+        if res.valid and res.motivo == "ok" and abs(res.error_u) < config.CONE_VOLTA_OK_ERRO:
+            self._volta_ok += 1
+        else:
+            self._volta_ok = 0
+        if self._volta_ok >= config.CONE_VOLTA_OK_QUADROS:
+            self._voltando = False
+            self.eventos.append("[manobra] de volta na faixa da DIREITA")
+        elif agora - self._t_volta > config.CONE_VOLTA_MAX_S:
+            self._voltando = False
+            self.eventos.append("[manobra] volta pra direita: tempo maximo, segue normal")
 
     def _pulsar(self, agora, speed):
         """MAIS DEVAGAR sem travar o motor: abaixo de ~0.22 ele nao anda, entao anda em pulsos --
