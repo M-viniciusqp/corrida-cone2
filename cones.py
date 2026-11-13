@@ -457,7 +457,7 @@ class ConeVision:
         ref = ((-1.5 * lw, "S"), (-0.5 * lw, "D"), (0.5 * lw, "S"))
         lim_e, lim_d = (0.0 - xc) / w_ref, (W - xc) / w_ref
         tol = config.CONE_MAPA_TOL_LARGS
-        cand = np.arange(-1.5 * lw - 40.0, 0.5 * lw + 40.0, 0.5)   # ate 40 cm FORA da pista
+        cand = np.arange(-1.5 * lw - 100.0, 0.5 * lw + 100.0, 0.5)   # ate 1 m FORA da pista (cone na parede)
         score = np.zeros(len(cand))
         for i, wc in enumerate(cand):
             pred = [((wl - wc) / cw, tl) for (wl, tl) in ref]
@@ -719,7 +719,17 @@ class ConeAvoider:
             return False            # a camera ve a continua ENTRE o carro e o cone
         w, sig, fonte, medido = self.estimar_w(cone, lane, so_medido=True)
         if w is None or not medido or fonte == "pontilhada":
-            return True             # sem medida confiavel (so a pontilhada erra ~1 faixa): na duvida e obstaculo
+            # sem medida confiavel (so a pontilhada erra ~1 faixa): na duvida e obstaculo -- a nao ser
+            # que ate a GEOMETRIA (+-21 cm) ponha o cone claramente fora da pista (ex.: cone na parede)
+            wg, sg, fg, _ = self.estimar_w(cone, lane)
+            if wg is not None and sg is not None and fg == "geometria":
+                lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
+                s = getattr(lane, "sinal_continuo", 1.0) if lane is not None else 1.0
+                d = wg if s >= 0 else -wg
+                m = cw / 2.0 + config.CONE_DENTRO_PISTA_MARGEM_CM
+                if (d - sg) > 0.5 * lw + m or (d + sg) < -1.5 * lw - m:
+                    return False
+            return True
         lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
         s = getattr(lane, "sinal_continuo", 1.0) if lane is not None else 1.0
         dentro = w if s >= 0 else -w

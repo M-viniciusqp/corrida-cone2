@@ -32,7 +32,8 @@ VELOCIDADE_BASE    = 0.42  # BAIXA de proposito pra validar o desvio de cones.
                             # estavel. NUNCA deixe abaixo de VELOCIDADE_MINIMA
                             # (0.25), senao o speed_for() inverte. O freio por
                             # FPS baixo e o de curva fechada continuam ativos.
-VELOCIDADE_MINIMA  = 0.42   # subiu de 0.35 -- piso normal de curva
+VELOCIDADE_MINIMA  = 0.34   # piso nas curvas. Era 0.42 (= BASE): nao reduzia nada na curva e, nas mais
+                            # fechadas, a roda saia pra fora. Na reta continua VELOCIDADE_BASE
 VELOCIDADE_PERDIDO = 0.20   # perdeu a pista, andando devagar procurando
 VELOCIDADE_DESVIO  = 0.25   # desviando do cone e voltando pra faixa da direita: mais devagar (pedido 2026-11-13).
                             # De volta na faixa da direita, volta pra VELOCIDADE_BASE. A arrancada do desvio
@@ -346,7 +347,7 @@ CONE_CRUZAR_FRAC = 0.8
 # (altura relativa ou base cortada) -> para o carro em vez de bater.
 # 0.0 desliga.
 CONE_PARA_E_ANALISA = True      # PARA quando ve o cone, espera parar, analisa e so entao desvia (manobra.py)
-CONE_GATILHO_ALTURA = 0.30    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). 0.24 ainda parava muito longe
+CONE_GATILHO_ALTURA = 0.33    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). 0.30 ainda parava longe
                                 # altura = 25*f/(dist*240), f~240px -> 0.21 ~ 120 cm, 0.25 ~ 100 cm, 0.28 ~ 90 cm, 0.50 ~ 50 cm.
                                 # AJUSTE pelo 'alt' do log: e a distancia da parada.
 # APROXIMACAO: com o cone a vista no caminho (alt >= CONE_APROX_ALTURA) o carro anda mais devagar.
