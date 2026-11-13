@@ -236,6 +236,7 @@ class Piloto:
             else:
                 turn *= 0.85
                 speed = config.VELOCIDADE_PERDIDO
+            speed = self._pulsar(agora, speed)     # pista ruim: tambem proporcional ao fator
         else:
             turn, speed = 0.0, 0.0
             pid.reset()
@@ -263,16 +264,14 @@ class Piloto:
     def _pulsar(self, agora, speed):
         """MAIS DEVAGAR sem travar o motor: abaixo de ~0.22 ele nao anda, entao anda em pulsos --
         ligado na velocidade normal durante VELOCIDADE_FATOR de cada ciclo de PULSO_PERIODO_S e
-        solto (sem forca, rodando) no resto. Nao pulsa: parado, no empurrao de arrancar do desvio
-        e no pulso do anti-trava (esses precisam da forca toda)."""
+        solto (sem forca, rodando) no resto. TODAS as velocidades passam por aqui (andando, no
+        desvio, na arrancada do desvio e com a pista ruim), proporcionais a VELOCIDADE_FATOR.
+        So o pulso do anti-trava fica com a forca toda: ele so dispara com o carro TRAVADO."""
         fator = getattr(config, "VELOCIDADE_FATOR", 1.0)
         if fator >= 1.0 or speed <= 0.0 or self.manobra.parado:
             return speed
         if agora < self._pulso_ate:
-            return speed                  # anti-trava empurrando
-        if (self.manobra.estado == DESVIAR and
-                agora - self.manobra.t_estado < config.CONE_ARRANQUE_S):
-            return speed                  # arrancando pro desvio
+            return speed                  # anti-trava: carro travado, precisa da forca toda
         fase = (agora % config.PULSO_PERIODO_S) / config.PULSO_PERIODO_S
         return speed if fase < fator else 0.0
 
