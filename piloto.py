@@ -206,6 +206,10 @@ class Piloto:
                     and cone.altura >= config.CONE_APROX_ALTURA
                     and abs(cone.cx) < config.CONE_PARAR_X):
                 speed = min(speed, config.CONE_VEL_APROXIMA)   # cone a frente: chega devagar
+            # DESVIANDO e VOLTANDO pra faixa da direita: mais devagar. Quando o carro esta de volta
+            # na faixa da direita (_voltando acaba), volta a velocidade normal.
+            if config.VELOCIDADE_DESVIO and (manobra.estado == DESVIAR or self._voltando):
+                speed = min(speed, config.VELOCIDADE_DESVIO)
             if manobra.parado:
                 speed, turn = 0.0, 0.0           # parando/analisando: motores em zero
             elif (manobra.estado == DESVIAR and

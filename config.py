@@ -34,6 +34,9 @@ VELOCIDADE_BASE    = 0.42  # BAIXA de proposito pra validar o desvio de cones.
                             # FPS baixo e o de curva fechada continuam ativos.
 VELOCIDADE_MINIMA  = 0.42   # subiu de 0.35 -- piso normal de curva
 VELOCIDADE_PERDIDO = 0.20   # perdeu a pista, andando devagar procurando
+VELOCIDADE_DESVIO  = 0.30   # desviando do cone e voltando pra faixa da direita: mais devagar (pedido 2026-11-13).
+                            # De volta na faixa da direita, volta pra VELOCIDADE_BASE. A arrancada do desvio
+                            # (CONE_ARRANQUE_VEL por CONE_ARRANQUE_S) continua igual. 0 = desliga
 
 # MAIS DEVAGAR (pedido 2026-11-13: "50% da velocidade, mais lento que agora"). O motor nao anda
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
