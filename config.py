@@ -248,7 +248,7 @@ CONE_ALTURA_PERTO = 0.09   # proximidade 1.0 (desvio total). Baixo de
                            # (larguras de cone), nao precisa de rampa lenta.
 
 # ---- desvio ----
-CONE_CORREDOR     = 0.95   # so reage a cone com |x| menor que isso (-1..+1)
+CONE_CORREDOR     = 0.99   # so reage a cone com |x| menor que isso (-1..+1). Era 0.95: cone no canto (curva) nao era medido
 # Folga lateral CENTRO DO CARRO -> CENTRO DO CONE, em cm da pista (MEDIR):
 #   metade da largura do carro + metade da largura do cone + margem
 # A margem cobre o erro de controle e de medida (no simulador o carro
@@ -400,7 +400,7 @@ CONE_BASE_FALSO_ALT = 0.15
 CONE_ALEM_CONT_MAX_LARGS = 3.0
 CONE_GATILHO_QUADROS = 2       # quadros seguidos vendo o cone no gatilho (evita falso positivo)
 CONE_PARADA_MIN_S = 0.2         # tempo minimo parado antes de analisar (inercia dos motores)
-CONE_PARADA_MAX_S = 1.5         # se nao parar de se mexer nesse tempo, analisa assim mesmo
+CONE_PARADA_MAX_S = 1.0         # se nao parar de se mexer nesse tempo, analisa assim mesmo (era 1.5: ficava muito parado)
 CONE_PARADA_CALMO_N = 2         # quadros seguidos 'sem se mexer' pra considerar parado
 CONE_PARADO_D_ALT = 0.012       # o cone mudou de altura menos que isso entre quadros = parado.
                                 # (era 0.004 = 1 pixel: com camera real nunca passava e a parada era
@@ -419,7 +419,8 @@ FREIO_ATIVO = True
 # ele esta colado na frente, abaixo do campo da camera. Antes o carro entendia 'sem cone' e seguia
 # em frente DIRETO pra cima dele (log real: altura 0.26 -> 0.75 e depois 'cone -').
 CONE_PERDIDO_PERTO_ALT = 0.45
-CONE_PERDIDO_PERTO_MAX_S = 6.0  # fica parado ate isso esperando; depois segue (nao trava pra sempre)
+CONE_PERDIDO_PERTO_MAX_S = 1.5  # fica parado ate isso esperando; depois segue (era 6 s: ficava muito parado)
+CONE_FREAR_SUMIU_S = 0.4        # freando, o cone sumiu por isso e NAO estava colado: cancela a parada e segue
 CONE_ANALISE_S = 0.15           # tempo medindo o cone com o carro parado
 CONE_REARME_S = 0.5             # durante o desvio: cone sumiu por isso = ja passou; um novo pode parar
 CONE_COOLDOWN_S = 0.4           # depois de um desvio, tempo sem parar de novo
@@ -473,7 +474,8 @@ CONE_FAIXA_PERSISTE = False     # depois de desviar FICA na outra faixa; so troc
 CONE_PONT_TOL_CM = 14.0        # medida pela pontilhada que discorda da geometria por mais que isso e descartada
 CONE_TROCA_LADO_ALTURA_MAX = 0.25   # so troca de lado no meio da manobra se o
                                     # cone ainda esta mais longe que isso
-CONE_PARAR_X      = 0.85   # so conta se o cone esta nesse corredor central
+CONE_PARAR_X      = 0.97   # so conta se o cone esta nesse corredor central. Era 0.85: em curva o cone da frente aparece
+                           # no canto da imagem (x 0.91) e so entrava no corredor ja perto (parava em alt 0.55)
 
 # Memoria: o cone some do campo de visao ANTES do carro terminar de passar
 # por ele. Sem segurar o desvio, o carro volta pro centro e raspa o cone.

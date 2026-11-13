@@ -47,6 +47,8 @@ class Manobra:
         self._alt_ult = 0.0         # altura do cone na ultima vez em que foi visto
         self._base_ult = False      # ... e se a base estava cortada (colado no carro)
         self.esperando_perto = False   # parado porque o cone sumiu colado (nao segue em frente)
+        self._t_sumiu_frear = None     # desde quando o cone sumiu durante a frenagem
+        self.cancelou = False          # a ultima parada foi cancelada (cone sumiu)
 
     @property
     def parado(self):
@@ -81,6 +83,9 @@ class Manobra:
         self.estado = estado
         self.t_estado = agora
         self.calmo = 0
+        self._t_sumiu_frear = None
+        if estado == FREAR:
+            self.cancelou = False
         if estado == FREAR:
             self.ultimo = ""            # nao deixa o texto da decisao ANTERIOR no log/foto
         if estado != ANALISAR:
@@ -155,6 +160,20 @@ class Manobra:
         if self.estado == FREAR:
             desvio.liberado = False
             dt = agora - self.t_estado
+            # o cone SUMIU durante a frenagem e nao estava colado: foi deteccao falsa (ou um cone de
+            # canto que saiu da imagem). Nao fica parado esperando: cancela e segue.
+            if cone is not None and cone.found:
+                self._t_sumiu_frear = None
+            else:
+                if self._t_sumiu_frear is None:
+                    self._t_sumiu_frear = agora
+                colado = self._alt_ult >= config.CONE_PERDIDO_PERTO_ALT or self._base_ult
+                if not colado and agora - self._t_sumiu_frear >= config.CONE_FREAR_SUMIU_S:
+                    self.ultimo = "cone sumiu durante a frenagem (alt %.2f): parada cancelada" % self._alt_ult
+                    self.cancelou = True
+                    self.t_ultimo_gatilho = agora
+                    self._muda(SEGUIR, agora)
+                    return self.estado
             if self._parado_agora():
                 self.calmo += 1
             else:

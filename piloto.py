@@ -136,6 +136,8 @@ class Piloto:
                     if desvio.folga_cm < config.CONE_FOLGA_MIN_CM:
                         pos += " (FOLGA CURTA)"
                 ev.append(f"[manobra] DESVIANDO {lado_t} ({pos}) | {manobra.ultimo}")
+            elif estado == SEGUIR and self._estado_ant in (FREAR, ANALISAR):
+                ev.append("[manobra] parada cancelada -> segue (%s)" % (manobra.ultimo or "perdeu o cone"))
             elif estado == SEGUIR:
                 ev.append("[manobra] desvio terminado -> seguindo a faixa")
             if self._estado_ant in (FREAR, ANALISAR) and estado not in (FREAR, ANALISAR):
