@@ -90,6 +90,7 @@ class ConeVision:
         self._dx_pont = None
         self._mapa = (None, 0.0)
         self._trk = None            # caixa do cone escolhido no quadro anterior (rastreio)
+        self.fora_ignorados = 0     # quantos cones fora da pista foram descartados (log)
         # fecha os buracos que o brilho (reflexo) do plastico abre no cone
         self._k_close = cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9))
 
@@ -106,6 +107,27 @@ class ConeVision:
         if base <= 0:
             return False
         return (topo / base) <= config.CONE_AFINA_MAX
+
+    def _so_dentro_da_pista(self, frame, cands, lado_solida):
+        """Tira os cones que o mapa da pista mede como FORA das duas continuas (ex.: cone encostado
+        na parede, do lado de fora da pista). Na duvida (mapa sem resposta) o cone fica: e melhor
+        parar a toa do que ignorar um cone de verdade."""
+        lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
+        m = cw / 2.0 + config.CONE_DENTRO_PISTA_MARGEM_CM
+        lado = (1 if lado_solida > 0 else -1) if lado_solida else 0
+        ficam = []
+        for b in cands:
+            self._dx_pont, self._fora_cont, self._mapa = None, False, (None, 0.0)
+            self._dist_solida(frame, b, lado)
+            w = self._mapa[0]
+            if w is not None:
+                dentro = w if lado >= 0 else -w
+                if dentro > 0.5 * lw + m or dentro < -1.5 * lw - m:
+                    self.fora_ignorados += 1
+                    continue                    # medido fora da pista: nao e obstaculo
+            ficam.append(b)
+        self._dx_pont, self._fora_cont, self._mapa = None, False, (None, 0.0)
+        return ficam
 
     def _escolhe(self, cands, H):
         """UM cone so: o mais PERTO (base mais baixa na imagem). Se o cone do quadro anterior
@@ -183,6 +205,8 @@ class ConeVision:
             res.n_candidatos += 1
             cands.append((x, y + y0, w, h))
 
+        if getattr(config, "CONE_SO_DENTRO_PISTA", False) and cands:
+            cands = self._so_dentro_da_pista(frame, cands, lado_solida)
         melhor = self._escolhe(cands, H)
         if melhor is not None:
             x, y, w, h = melhor
@@ -433,7 +457,7 @@ class ConeVision:
         ref = ((-1.5 * lw, "S"), (-0.5 * lw, "D"), (0.5 * lw, "S"))
         lim_e, lim_d = (0.0 - xc) / w_ref, (W - xc) / w_ref
         tol = config.CONE_MAPA_TOL_LARGS
-        cand = np.arange(-1.5 * lw - 12.0, 0.5 * lw + 12.0, 0.5)
+        cand = np.arange(-1.5 * lw - 40.0, 0.5 * lw + 40.0, 0.5)   # ate 40 cm FORA da pista
         score = np.zeros(len(cand))
         for i, wc in enumerate(cand):
             pred = [((wl - wc) / cw, tl) for (wl, tl) in ref]
@@ -693,12 +717,17 @@ class ConeAvoider:
         estimativa confiavel devolve True (na duvida, trata como obstaculo)."""
         if self._alem_da_continua(cone, lane):
             return False            # a camera ve a continua ENTRE o carro e o cone
-        w = self._estimar_w(cone, lane, so_medido=True)
-        if w is None:
-            return True             # so geometria (ruidosa): na duvida e obstaculo
-        lw = config.PISTA_LARGURA_CM
-        # pista = da linha externa esquerda (-1.5*lw) ate a continua (+0.5*lw)
-        return (-1.5 * lw - config.CONE_FORA_PISTA_CM) <= w <= (0.5 * lw + config.CONE_FORA_PISTA_CM)
+        w, sig, fonte, medido = self.estimar_w(cone, lane, so_medido=True)
+        if w is None or not medido or fonte == "pontilhada":
+            return True             # sem medida confiavel (so a pontilhada erra ~1 faixa): na duvida e obstaculo
+        lw, cw = config.PISTA_LARGURA_CM, config.CONE_LARGURA_CM
+        s = getattr(lane, "sinal_continuo", 1.0) if lane is not None else 1.0
+        dentro = w if s >= 0 else -w
+        m = cw / 2.0 + config.CONE_DENTRO_PISTA_MARGEM_CM
+        # pista = da linha externa esquerda (-1.5*lw) ate a continua (+0.5*lw). FORA so se, mesmo
+        # com a incerteza da medida, o cone nao encosta nela
+        fora = (dentro - sig) > 0.5 * lw + m or (dentro + sig) < -1.5 * lw - m
+        return not fora
 
     # ------------------------------------------------------------------
     # ESTIMADOR UNICO da posicao do cone na faixa (cm do centro da faixa direita,

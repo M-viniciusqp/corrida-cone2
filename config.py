@@ -364,7 +364,7 @@ CONE_PONT_SOZINHA_DECIDE = False  # so a pontilhada (sem a continua) NAO decide 
                                   # lado certo 39/41 assim contra 36/41 deixando ela decidir
 CONE_REDECIDE_AO_CONGELAR = False # redecide o lado ao fim do ANALISAR. No simulador (16 voltas) NAO ajudou:
                                    # 43/52 lados certos ligado contra 45/51 desligado.
-CONE_VETO_FORA_ALTURA = 0.45  # so ignora (nao para por) cone "fora da pista" se ele ja estiver tao perto;
+CONE_VETO_FORA_ALTURA = 0.0   # ignora cone medido FORA da pista a qualquer distancia (era 0.45: so perto)
                                 # mais longe a posicao lateral estimada nao e confiavel -> para e analisa
 # Pecinha vermelha encostada na borda de baixo da camera do cone e menor que isso (altura/imagem) = o fio
 # do proprio carro, nao um cone. (teste real: virava 'cone a vista alt 0.08' e parava o carro)
@@ -388,6 +388,10 @@ CONE_ALEM_CONT_LAT_MIN_W = 1.5
 # (o lado da pontilhada em que ele cai) e o carro passa pela OUTRA, no minimo no centro dela.
 # Qualquer cone dentro das duas continuas e obstaculo; so ignora cone fora delas. 0 = estrategia antiga.
 CONE_ESTRATEGIA_FAIXA = 1
+# SO CONES DENTRO DA PISTA (pedido 2026-11-13): cone medido fora das duas continuas e descartado ja na
+# escolha do cone (nem para). Dentro = encosta na pista: ate meia largura do cone + esta margem alem da linha.
+CONE_SO_DENTRO_PISTA = True
+CONE_DENTRO_PISTA_MARGEM_CM = 3.0
 CONE_NA_PISTA_MARGEM_CM = 2.0      # cone ate (meia largura dele + isto) alem da continua ainda conta
 # ---- ESCOLHA DO CONE (camera do cone) ----
 CONE_CHAO_MIN_PCT = 0.30           # a base do cone tem que estar abaixo disso (fracao da altura): acima e
