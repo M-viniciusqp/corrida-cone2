@@ -199,6 +199,9 @@ class Piloto:
             if (manobra.estado == DESVIAR and
                     abs(desvio.offset - desvio.off_base) > 0.1):
                 turn = max(-1.0, min(1.0, turn * config.CONE_GANHO_TURN_DESVIO))
+            # voltando pra faixa da direita: esterca mais forte pra voltar logo, nao aos poucos
+            if self._voltando and config.CONE_GANHO_VOLTA != 1.0:
+                turn = max(-1.0, min(1.0, turn * config.CONE_GANHO_VOLTA))
 
             speed = speed_for(turn, res.curvature) * desvio.fator_velocidade()
             if (config.CONE_VEL_APROXIMA and manobra.estado == SEGUIR and not manobra.ignorando
