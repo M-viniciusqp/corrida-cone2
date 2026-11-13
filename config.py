@@ -37,7 +37,7 @@ VELOCIDADE_PERDIDO = 0.20   # perdeu a pista, andando devagar procurando
 VELOCIDADE_DESVIO  = 0.25   # desviando do cone e voltando pra faixa da direita: mais devagar (pedido 2026-11-13).
                             # De volta na faixa da direita, volta pra VELOCIDADE_BASE. A arrancada do desvio
                             # (CONE_ARRANQUE_VEL por CONE_ARRANQUE_S) continua igual. 0 = desliga
-CONE_GANHO_VOLTA   = 1.4    # voltando pra faixa da direita: esterca 40% mais forte (volta rapido, nao aos poucos). 1.0 = desliga
+CONE_GANHO_VOLTA   = 1.2    # voltando pra faixa da direita: esterca 20% mais forte (1.4 passava da continua). 1.0 = desliga
 
 # MAIS DEVAGAR (pedido 2026-11-13: "50% da velocidade, mais lento que agora"). O motor nao anda
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
@@ -346,7 +346,7 @@ CONE_CRUZAR_FRAC = 0.8
 # (altura relativa ou base cortada) -> para o carro em vez de bater.
 # 0.0 desliga.
 CONE_PARA_E_ANALISA = True      # PARA quando ve o cone, espera parar, analisa e so entao desvia (manobra.py)
-CONE_GATILHO_ALTURA = 0.25    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). Camera nova: 0.17 parava longe demais
+CONE_GATILHO_ALTURA = 0.20    # altura do cone na imagem que dispara a parada (MAIOR = para mais PERTO). Com velocidade 0.42, 0.25 parava colado
                                 # altura = 25*f/(dist*240), f~240px -> 0.21 ~ 120 cm, 0.25 ~ 100 cm, 0.28 ~ 90 cm, 0.50 ~ 50 cm.
                                 # AJUSTE pelo 'alt' do log: e a distancia da parada.
 # APROXIMACAO: com o cone a vista no caminho (alt >= CONE_APROX_ALTURA) o carro anda mais devagar.
