@@ -35,6 +35,13 @@ VELOCIDADE_BASE    = 0.22  # BAIXA de proposito pra validar o desvio de cones.
 VELOCIDADE_MINIMA  = 0.22   # subiu de 0.35 -- piso normal de curva
 VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 
+# MAIS DEVAGAR (pedido 2026-11-13: "50% da velocidade, mais lento que agora"). O motor nao anda
+# abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
+# velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
+# de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
+VELOCIDADE_FATOR = 0.5
+PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
+
 FPS_MINIMO_SEGURO = 15.0
 
 # =====================================================================
@@ -152,7 +159,8 @@ TURN_DECAI_PERDIDO_DESVIO   = 0.985
 # =====================================================================
 # 9. VIES DE FAIXA - andar mais perto da faixa PONTILHADA que do centro
 # =====================================================================
-LANE_BIAS_FRAC   = 0.85     # subiu de 0.70 -- bem mais perto do pontilhado
+LANE_BIAS_FRAC   = 0.0      # SEMPRE NO CENTRO DA FAIXA DA DIREITA (pedido 2026-11-13). Antes 0.85 deixava o
+                            # carro quase em cima da pontilhada; so vai pra esquerda pra desviar de cone
 LANE_BIAS_LIMITE = 0.90     # subiu de 0.80 -- abriu mais espaco pro vies.
                             # ATENCAO: isso ja come bastante da margem de
                             # seguranca. Perto do limite, qualquer falha
@@ -411,8 +419,7 @@ FREIO_ATIVO = True
 # ele esta colado na frente, abaixo do campo da camera. Antes o carro entendia 'sem cone' e seguia
 # em frente DIRETO pra cima dele (log real: altura 0.26 -> 0.75 e depois 'cone -').
 CONE_PERDIDO_PERTO_ALT = 0.45
-CONE_PERDIDO_PERTO_MAX_S = 2.0  # fica parado ate isso esperando (antes 6 s: o carro ficava muito tempo parado)
-CONE_DESVIO_MIN_S = 1.0         # o desvio dura pelo menos isso (nao 'termina' antes de comecar)
+CONE_PERDIDO_PERTO_MAX_S = 6.0  # fica parado ate isso esperando; depois segue (nao trava pra sempre)
 CONE_ANALISE_S = 0.15           # tempo medindo o cone com o carro parado
 CONE_REARME_S = 0.5             # durante o desvio: cone sumiu por isso = ja passou; um novo pode parar
 CONE_COOLDOWN_S = 0.4           # depois de um desvio, tempo sem parar de novo
@@ -460,6 +467,8 @@ CONE_SEQ_PARADA_MIN_S = 0.1     # em sequencia: parada minima mais curta
 CONE_SEQ_ANALISE_S = 0.15       # em sequencia: igual a analise normal (antes 0.1)
 CONE_ARRANQUE_VEL = 0.45        # empurrao ao sair da parada (vence o atrito do repouso)
 CONE_ARRANQUE_S = 0.5           # duracao do empurrao
+CONE_DESVIO_SEMPRE_ESQUERDA = True   # pedido 2026-11-13: cone SEMPRE na faixa da direita -> desvia SEMPRE
+                                     # pela ESQUERDA e volta pra direita. Cone medido na faixa da esquerda e ignorado.
 CONE_FAIXA_PERSISTE = False     # depois de desviar FICA na outra faixa; so troca quando um cone na faixa dela pedir
 CONE_PONT_TOL_CM = 14.0        # medida pela pontilhada que discorda da geometria por mais que isso e descartada
 CONE_TROCA_LADO_ALTURA_MAX = 0.25   # so troca de lado no meio da manobra se o

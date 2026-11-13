@@ -828,6 +828,18 @@ class ConeAvoider:
         if not medido or w is None:
             self.classif = "sem medida confiavel (%s) | %s -> desvia" % (fonte, lat_txt)
             return True, self.classif
+        if getattr(config, "CONE_DESVIO_SEMPRE_ESQUERDA", False):
+            # regra da prova: o carro anda na faixa da DIREITA e os cones ficam nela. So ignora o
+            # cone que esta claramente na faixa da ESQUERDA (inteiro alem da pontilhada) ou fora da pista.
+            m = cw / 2.0 + config.CONE_NA_PISTA_MARGEM_CM
+            dentro = w if s > 0 else -w                      # + = rumo a continua da direita
+            na_pista = (-1.5 * lw - m) <= dentro <= (0.5 * lw + m)
+            na_esquerda = (dentro + sig) < (-lw / 2.0 - config.CONE_NA_LINHA_CM)
+            obstaculo = na_pista and not na_esquerda
+            self.classif = "w %+.0f+-%.0fcm [%s] = %s | %s" % (
+                w, sig, fonte, ("FORA da pista" if not na_pista else
+                                "faixa da ESQUERDA (ignora)" if na_esquerda else "faixa da DIREITA"), lat_txt)
+            return obstaculo, self.classif
         if config.CONE_ESTRATEGIA_FAIXA:
             # o carro anda perto da pontilhada (vies de faixa), ocupando um pouco das DUAS faixas:
             # qualquer cone NA PISTA (entre as duas continuas) e obstaculo. So ignora cone fora dela.
@@ -887,20 +899,17 @@ class ConeAvoider:
                 self.lado = prop
                 self._lado_medido = True
                 self._disc_t = None
-        # SEM LADO (a analise terminou sem medida): no teste real isso virava "DESVIANDO ?" e o
-        # desvio "terminava" na hora, com o carro seguindo reto pro cone. Usa o lado padrao.
-        if self.lado == 0:
-            self.lado, _ = self._propor_lado(cone, lane)
+        if getattr(config, "CONE_DESVIO_SEMPRE_ESQUERDA", False):
+            self.lado = 1                       # regra da prova: sempre pela ESQUERDA
         w, _ = self._w_cone(cone, lane)
-        if w is None:
-            # SEM POSICAO: o cone disparou a parada bem na frente do carro, entao supoe ele onde o
-            # carro anda (perto da pontilhada, pelo vies de faixa) -- melhor que nao desviar
+        if w is None and getattr(config, "CONE_DESVIO_SEMPRE_ESQUERDA", False):
+            # sem posicao medida: o cone disparou a parada na frente do carro, que anda no centro
+            # da faixa da direita -> supoe ele la (sem isso o desvio nao andava: "DESVIANDO ?")
             vies = min(config.LANE_BIAS_LIMITE, abs(config.LANE_BIAS_FRAC))
-            s = getattr(lane, "sinal_continuo", 1.0) if lane is not None else 1.0
-            w = -vies * config.PISTA_LARGURA_CM / 2.0 * (1.0 if s >= 0 else -1.0)
+            w = -vies * config.PISTA_LARGURA_CM / 2.0
             self.w_cone_cm = w
             self.fonte_w = "suposto na frente"
-        if self.lado != 0:
+        if w is not None and self.lado != 0:
             self._w_fixo = w
             self._congelado = True
 
@@ -1041,6 +1050,10 @@ class ConeAvoider:
         self.na_faixa = None
         self.dist_cont_cm = (cone.d_solida_w * config.CONE_LARGURA_CM
                              if cone.d_solida_w is not None else None)
+        if getattr(config, "CONE_DESVIO_SEMPRE_ESQUERDA", False):
+            # regra da prova: cone SEMPRE na faixa da direita -> passa SEMPRE pela ESQUERDA
+            w, sig, fonte, medido = self.estimar_w(cone, lane)
+            return 1, bool(medido and w is not None)
         pont = self._lado_da_pontilhada(lane)
         if pont is None:
             return (-1 if config.CONE_LADO_PADRAO == "direita" else 1), False

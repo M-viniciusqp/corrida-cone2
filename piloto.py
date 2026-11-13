@@ -212,6 +212,7 @@ class Piloto:
                 speed *= max(0.35, fps / config.FPS_MINIMO_SEGURO)
 
             speed = self._anti_trava(agora, speed)
+            speed = self._pulsar(agora, speed)
 
         elif vision.lost_frames <= (config.MAX_FRAMES_PERDIDO_DESVIO
                                     if vision.em_desvio else config.MAX_FRAMES_PERDIDO):
@@ -231,6 +232,22 @@ class Piloto:
             pid.reset()
             desvio.reset()
         return turn, speed
+
+    def _pulsar(self, agora, speed):
+        """MAIS DEVAGAR sem travar o motor: abaixo de ~0.22 ele nao anda, entao anda em pulsos --
+        ligado na velocidade normal durante VELOCIDADE_FATOR de cada ciclo de PULSO_PERIODO_S e
+        solto (sem forca, rodando) no resto. Nao pulsa: parado, no empurrao de arrancar do desvio
+        e no pulso do anti-trava (esses precisam da forca toda)."""
+        fator = getattr(config, "VELOCIDADE_FATOR", 1.0)
+        if fator >= 1.0 or speed <= 0.0 or self.manobra.parado:
+            return speed
+        if agora < self._pulso_ate:
+            return speed                  # anti-trava empurrando
+        if (self.manobra.estado == DESVIAR and
+                agora - self.manobra.t_estado < config.CONE_ARRANQUE_S):
+            return speed                  # arrancando pro desvio
+        fase = (agora % config.PULSO_PERIODO_S) / config.PULSO_PERIODO_S
+        return speed if fase < fator else 0.0
 
     def _anti_trava(self, agora, speed):
         """Andando devagar o motor pode nao vencer o atrito do repouso (teste real: parado por
