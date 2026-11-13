@@ -39,7 +39,7 @@ VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.5
+VELOCIDADE_FATOR = 0.35   # mais lento (pedido 2026-11-13: era 0.5)
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
