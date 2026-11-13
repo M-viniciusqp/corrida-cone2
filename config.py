@@ -10,8 +10,6 @@ import numpy as np
 # =====================================================================
 ENA_A = 5;  IN1_A = 6;  IN2_A = 13     # motor esquerdo
 ENA_B = 17; IN3_B = 22; IN4_B = 27     # motor direito
-MOTOR_PWM_HZ = 500   # frequencia do PWM dos motores. Era 100: com o carro em pulsos o motor B (IN3/IN4)
-                     # ligava ate 10 ms depois do A. Pra voltar como era: 100
 SERVO_PIN = 18
 
 # =====================================================================
@@ -41,7 +39,7 @@ VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.19   # VELOCIDADE PRINCIPAL: as outras sao proporcionais a ela (pedido 2026-11-13: 0.19)
+VELOCIDADE_FATOR = 0.20   # VELOCIDADE PRINCIPAL: as outras sao proporcionais a ela (pedido 2026-11-13: ficou em 0.20)
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
