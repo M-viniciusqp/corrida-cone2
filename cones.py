@@ -855,6 +855,14 @@ class ConeAvoider:
         w, sig, fonte, medido = self.estimar_w(cone, lane)
         self.classif_w = w
         if not medido or w is None:
+            if w is not None and sig is not None:
+                # so a geometria (+-21 cm), mas fora da pista MESMO contando o erro: ignora
+                # (teste real: cone no canto direito estimado em +82 cm virou desvio pra esquerda)
+                dentro_g = w if s > 0 else -w
+                mg = cw / 2.0 + config.CONE_DENTRO_PISTA_MARGEM_CM
+                if (dentro_g - sig) > 0.5 * lw + mg or (dentro_g + sig) < -1.5 * lw - mg:
+                    self.classif = "w %+.0f+-%.0fcm [%s] = FORA da pista (ignora) | %s" % (w, sig, fonte, lat_txt)
+                    return False, self.classif
             self.classif = "sem medida confiavel (%s) | %s -> desvia" % (fonte, lat_txt)
             return True, self.classif
         if getattr(config, "CONE_DESVIO_SEMPRE_ESQUERDA", False):

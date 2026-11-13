@@ -51,6 +51,7 @@ class Manobra:
         self._t_fim_desvio = -1e9      # quando o ultimo desvio terminou
         self._agora = 0.0
         self._t_sumiu_frear = None     # desde quando o cone sumiu durante a frenagem
+        self._alt_parou = 0.0          # altura do cone quando o carro parou (pra reconhecer o MESMO cone)
         self.cancelou = False          # a ultima parada foi cancelada (cone sumiu)
 
     @property
@@ -203,6 +204,7 @@ class Manobra:
                 # carro parado: comeca a medir do zero (as leituras da
                 # aproximacao eram de longe e com o carro balancando)
                 desvio.reiniciar_medidas()
+                self._alt_parou = self._alt_ult      # tamanho do cone que fez o carro parar
                 self._muda(ANALISAR, agora)
             return self.estado
 
@@ -216,8 +218,13 @@ class Manobra:
             # real da posicao (nao so geometria); senao espera ate CONE_ANALISE_MAX_S
             pronto = ((dt_an >= analise_s and desvio.n_quadros >= n_min
                        and desvio.tem_medida) or dt_an >= config.CONE_ANALISE_MAX_S)
+            # so vale o MESMO cone que fez parar: um bem menor (mais longe ou no canto, ex.: fora da
+            # pista) e outro cone. No teste real o cone sumiu colado, apareceu um no canto direito
+            # e o carro desviou por ele -> foi parar na borda esquerda.
+            mesmo = (cone is not None and cone.found and
+                     cone.altura >= config.CONE_MESMO_FRAC * self._alt_parou)
             if pronto:
-                if cone is not None and cone.found:
+                if mesmo:
                     self.esperando_perto = False
                     rel, txt = desvio.classificar_parado(cone, lane)
                     self.ultimo = txt
@@ -237,7 +244,7 @@ class Manobra:
                     self._t_sem_cone = None
                     self._alt_max = cone.altura
                     self._muda(DESVIAR, agora)
-                elif ((self._alt_ult >= config.CONE_PERDIDO_PERTO_ALT or self._base_ult)
+                elif ((max(self._alt_ult, self._alt_parou) >= config.CONE_PERDIDO_PERTO_ALT or self._base_ult)
                         and dt_an < config.CONE_PERDIDO_PERTO_MAX_S):
                     # o cone SUMIU mas estava colado (altura alta / base cortada): ele esta
                     # na frente, abaixo do campo da camera. Seguir em frente = bater nele.

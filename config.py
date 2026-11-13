@@ -39,7 +39,7 @@ VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.20   # VELOCIDADE PRINCIPAL: as outras sao proporcionais a ela (pedido 2026-11-13: ficou em 0.20)
+VELOCIDADE_FATOR = 0.17   # VELOCIDADE PRINCIPAL (pedido 2026-11-13: mais devagar, pista com muitas curvas). Arrancada do desvio continua com forca total
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
@@ -392,6 +392,8 @@ CONE_ESTRATEGIA_FAIXA = 1
 # escolha do cone (nem para). Dentro = encosta na pista: ate meia largura do cone + esta margem alem da linha.
 CONE_SO_DENTRO_PISTA = True
 CONE_DENTRO_PISTA_MARGEM_CM = 3.0
+CONE_MESMO_FRAC = 0.5            # na analise, cone visto com menos que isso da altura de quando o carro parou
+                                 # e OUTRO cone (mais longe/no canto): nao e analisado no lugar do que parou
 CONE_NA_PISTA_MARGEM_CM = 2.0      # cone ate (meia largura dele + isto) alem da continua ainda conta
 # ---- ESCOLHA DO CONE (camera do cone) ----
 CONE_CHAO_MIN_PCT = 0.30           # a base do cone tem que estar abaixo disso (fracao da altura): acima e
