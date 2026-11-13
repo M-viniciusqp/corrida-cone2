@@ -16,8 +16,13 @@ class Motor:
         for pin in (EnaA, In1A, In2A, EnaB, In1B, In2B, servoPin):
             GPIO.setup(pin, GPIO.OUT)
 
-        self.pwmA = GPIO.PWM(self.EnaA, 100)
-        self.pwmB = GPIO.PWM(self.EnaB, 100)
+        # cada motor tem o PWM proprio e so obedece uma mudanca no comeco do PROXIMO ciclo dele;
+        # os ciclos nao sao sincronizados. A 100 Hz (ciclo de 10 ms) um motor podia ligar ate
+        # 10 ms depois do outro -- com o carro em pulsos curtos (~38 ms ligado) isso aparecia como
+        # o motor B (IN3/IN4) "atrasado". Frequencia maior = diferenca menor (500 Hz: no max 2 ms).
+        hz = getattr(config, "MOTOR_PWM_HZ", 100)
+        self.pwmA = GPIO.PWM(self.EnaA, hz)
+        self.pwmB = GPIO.PWM(self.EnaB, hz)
         self.pwmA.start(0)
         self.pwmB.start(0)
 

@@ -47,6 +47,9 @@ class Manobra:
         self._alt_ult = 0.0         # altura do cone na ultima vez em que foi visto
         self._base_ult = False      # ... e se a base estava cortada (colado no carro)
         self.esperando_perto = False   # parado porque o cone sumiu colado (nao segue em frente)
+        self._lado_passado = 0         # lado do ultimo desvio (+1 = passou pela esquerda: cone a direita)
+        self._t_fim_desvio = -1e9      # quando o ultimo desvio terminou
+        self._agora = 0.0
         self._t_sumiu_frear = None     # desde quando o cone sumiu durante a frenagem
         self.cancelou = False          # a ultima parada foi cancelada (cone sumiu)
 
@@ -56,8 +59,20 @@ class Manobra:
         return self.estado in (FREAR, ANALISAR)
 
     # ------------------------------------------------------------------
+    def _cone_passado(self, cone):
+        """E o cone que o carro ACABOU de passar (visto de novo no canto quando o carro vira pra
+        voltar pra direita)? Durante o desvio e ate CONE_PASSADO_S depois, cone no canto do lado em
+        que o cone passou (lado +1 = passou pela esquerda -> cone ficou a DIREITA, x > 0)."""
+        if not self._lado_passado or cone is None or not cone.found:
+            return False
+        recente = (self.estado == DESVIAR or
+                   self._agora - self._t_fim_desvio < config.CONE_PASSADO_S)
+        return recente and cone.cx * self._lado_passado > config.CONE_PASSADO_X
+
     def _gatilho(self, cone):
         if self._fora_da_pista:
+            return False
+        if self._cone_passado(cone):
             return False
         return (cone is not None and cone.found and
                 abs(cone.cx) < config.CONE_PARAR_X and
@@ -69,6 +84,8 @@ class Manobra:
             return ""
         if self.ignorando:
             return "cone marcado como OUTRA faixa (ignorando)"
+        if self._cone_passado(cone):
+            return "e o cone que acabou de passar (canto %s): ignora" % ("direito" if cone.cx > 0 else "esquerdo")
         if self._fora_da_pista:
             return "estimado FORA da pista (perto: veto)"
         if abs(cone.cx) >= config.CONE_PARAR_X:
@@ -95,6 +112,7 @@ class Manobra:
         """Chamar a cada quadro. cone_novo = chegou quadro novo da camera de
         cone. mov_pista = quanto a imagem da pista mudou desde o quadro
         anterior (None se nao ha). Devolve o estado."""
+        self._agora = agora
         if not self.ativa:
             desvio.liberado = True
             return self.estado
@@ -214,6 +232,7 @@ class Manobra:
                         return self.estado
                     desvio.liberado = True
                     desvio.congelar_decisao(cone, lane)
+                    self._lado_passado = desvio.lado
                     self._rearmado = False
                     self._t_sem_cone = None
                     self._alt_max = cone.altura
@@ -263,6 +282,7 @@ class Manobra:
                and agora - self.t_estado >= config.CONE_DESVIO_MIN_S)
         if fim or agora - self.t_estado > config.CONE_DESVIO_MAX_S:
             self.t_ultimo_gatilho = agora
+            self._t_fim_desvio = agora
             desvio.liberado = False
             desvio.descongelar()
             self._muda(SEGUIR, agora)
