@@ -39,7 +39,7 @@ VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.22   # mais lento (pedido 2026-11-13: 0.5 -> 0.35 -> 0.25 -> 0.22)
+VELOCIDADE_FATOR = 0.20   # mais lento (pedido 2026-11-13: 0.5 -> 0.35 -> 0.25 -> 0.22 -> 0.20)
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
@@ -486,10 +486,10 @@ CONE_VOLTA_OK_ERRO = 0.30       # erro da pista abaixo disso = de volta na faixa
 CONE_VOLTA_OK_QUADROS = 15      # ...por esses quadros seguidos
 CONE_VOLTA_MAX_S = 20.0         # limite de seguranca da memoria
 CONE_DESVIO_MIN_S = 1.0         # o desvio dura pelo menos isso (no log ele 'terminava' no mesmo instante)
-CONE_SEGURAR_S       = 1.60   # cone estava perto: mantem o desvio por esse tempo
+CONE_SEGURAR_S       = 0.30   # parou de ver o cone que passou -> volta pra direita (so tolera a camera piscar). Era 1.6
                               # (tem que cobrir o carro INTEIRO passando)
 CONE_SEGURAR_LONGE_S = 0.15   # cone estava longe: so tolera falha de deteccao
-CONE_DECAI_S         = 0.30   # depois disso, volta ao normal gradualmente
+CONE_DECAI_S         = 0.15   # depois disso, volta ao normal (era 0.3)
 CONE_RECONHECE_S     = 0.25   # sumiu por mais que isso -> proximo cone e outro
 
 CONE_FREIO_MAX    = 0.10   # reduz ate 25% da velocidade com cone bem perto
