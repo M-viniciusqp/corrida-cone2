@@ -499,7 +499,7 @@ CONE_VOLTA_OK_ERRO = 0.30       # erro da pista abaixo disso = de volta na faixa
 CONE_VOLTA_OK_QUADROS = 15      # ...por esses quadros seguidos
 CONE_VOLTA_MAX_S = 20.0         # limite de seguranca da memoria
 CONE_DESVIO_MIN_S = 1.0         # o desvio dura pelo menos isso (no log ele 'terminava' no mesmo instante)
-CONE_SEGURAR_S       = 1.00   # depois de deixar de ver o cone, ainda segura na esquerda por isso (0.3 era pouco, 1.6 demorava)
+CONE_SEGURAR_S       = 0.80   # depois de deixar de ver o cone, ainda segura na esquerda por isso (1.0 era um pouco demais)
                               # (tem que cobrir o carro INTEIRO passando)
 CONE_SEGURAR_LONGE_S = 0.15   # cone estava longe: so tolera falha de deteccao
 CONE_DECAI_S         = 0.15   # depois disso, volta ao normal (era 0.3)
