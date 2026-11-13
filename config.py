@@ -159,7 +159,8 @@ TURN_DECAI_PERDIDO_DESVIO   = 0.985
 # =====================================================================
 # 9. VIES DE FAIXA - andar mais perto da faixa PONTILHADA que do centro
 # =====================================================================
-LANE_BIAS_FRAC   = 0.0      # SEMPRE NO CENTRO DA FAIXA DA DIREITA (pedido 2026-11-13). Antes 0.85 deixava o
+LANE_BIAS_FRAC   = 0.4      # faixa da DIREITA, mais perto da PONTILHADA que da continua (pedido 2026-11-13: em 0.0 andava em cima
+                            # da continua). 0.0 = centro da faixa, 1.0 = em cima da pontilhada
                             # carro quase em cima da pontilhada; so vai pra esquerda pra desviar de cone
 LANE_BIAS_LIMITE = 0.90     # subiu de 0.80 -- abriu mais espaco pro vies.
                             # ATENCAO: isso ja come bastante da margem de
