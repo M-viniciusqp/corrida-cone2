@@ -27,19 +27,19 @@ STEER_INVERT = False
 # =====================================================================
 # 3. VELOCIDADE (0.0 a 1.0)
 # =====================================================================
-VELOCIDADE_BASE    = 0.22  # BAIXA de proposito pra validar o desvio de cones.
+VELOCIDADE_BASE    = 0.42  # BAIXA de proposito pra validar o desvio de cones.
                             # Suba de 0.05 em 0.05 (ate 1.00) conforme ficar
                             # estavel. NUNCA deixe abaixo de VELOCIDADE_MINIMA
                             # (0.25), senao o speed_for() inverte. O freio por
                             # FPS baixo e o de curva fechada continuam ativos.
-VELOCIDADE_MINIMA  = 0.22   # subiu de 0.35 -- piso normal de curva
-VELOCIDADE_PERDIDO = 0.18   # perdeu a pista, andando devagar procurando
+VELOCIDADE_MINIMA  = 0.42   # subiu de 0.35 -- piso normal de curva
+VELOCIDADE_PERDIDO = 0.20   # perdeu a pista, andando devagar procurando
 
 # MAIS DEVAGAR (pedido 2026-11-13: "50% da velocidade, mais lento que agora"). O motor nao anda
 # abaixo de ~0.22, entao nao da pra so baixar o numero: ele anda em PULSOS -- ligado na
 # velocidade normal durante VELOCIDADE_FATOR do tempo e solto (sem forca) no resto, em ciclos
 # de PULSO_PERIODO_S. Media = VELOCIDADE_FATOR da velocidade de antes. 1.0 = desliga (como antes).
-VELOCIDADE_FATOR = 0.17   # VELOCIDADE PRINCIPAL (pedido 2026-11-13: mais devagar, pista com muitas curvas). Arrancada do desvio continua com forca total
+VELOCIDADE_FATOR = 1.0    # VELOCIDADE PRINCIPAL (pedido 2026-11-13: mais devagar, pista com muitas curvas). Arrancada do desvio continua com forca total
 PULSO_PERIODO_S  = 0.20     # ciclo curto: o carro nao chega a parar entre os pulsos
 
 FPS_MINIMO_SEGURO = 15.0
